@@ -51,7 +51,10 @@ describe('HybridIndex', () => {
   }
 
   it('combines normalized vector and keyword scores in hybrid mode', () => {
-    const results = createIndex().search('bruno collection', [0, 1], { mode: 'hybrid' });
+    const results = createIndex().search('bruno collection', [0, 1], {
+      mode: 'hybrid',
+      ranking: { enabled: false }
+    });
 
     expect(results[0].chunk.id).toBe('chunk-2');
     expect(results[0].vectorScore).toBeDefined();
@@ -60,7 +63,10 @@ describe('HybridIndex', () => {
   });
 
   it('uses only vector scores in vector mode', () => {
-    const results = createIndex().search('bruno collection', [0, 1], { mode: 'vector' });
+    const results = createIndex().search('bruno collection', [0, 1], {
+      mode: 'vector',
+      ranking: { enabled: false }
+    });
 
     expect(results[0].chunk.id).toBe('chunk-2');
     expect(results[0].vectorScore).toBe(results[0].score);
@@ -68,7 +74,10 @@ describe('HybridIndex', () => {
   });
 
   it('uses only keyword scores in keyword mode', () => {
-    const results = createIndex().search('bruno collection', [0, 1], { mode: 'keyword' });
+    const results = createIndex().search('bruno collection', [0, 1], {
+      mode: 'keyword',
+      ranking: { enabled: false }
+    });
 
     expect(results[0].chunk.id).toBe('chunk-1');
     expect(results[0].keywordScore).toBe(results[0].score);
@@ -79,7 +88,8 @@ describe('HybridIndex', () => {
     const results = createIndex().search('bruno collection', [0, 1], {
       mode: 'hybrid',
       vectorWeight: 0.2,
-      keywordWeight: 0.8
+      keywordWeight: 0.8,
+      ranking: { enabled: false }
     });
 
     expect(results[0].chunk.id).toBe('chunk-1');
@@ -102,5 +112,14 @@ describe('HybridIndex', () => {
     const results = createIndex().search('collection', [0, 1], { mode: 'hybrid', topK: 2 });
 
     expect(results).toHaveLength(2);
+  });
+
+  it('adds ranking rationale by default without removing vector and keyword scores', () => {
+    const results = createIndex().search('bruno collection', [0, 1], { mode: 'hybrid' });
+
+    expect(results[0].ranking).toBeDefined();
+    expect(results[0].ranking?.finalScore).toBe(results[0].score);
+    expect(results[0].vectorScore).toBeDefined();
+    expect(results[0].keywordScore).toBeDefined();
   });
 });

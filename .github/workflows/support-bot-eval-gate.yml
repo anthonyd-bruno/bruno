@@ -1,0 +1,75 @@
+name: Support Bot Eval Gate
+
+on:
+  workflow_dispatch:
+    inputs:
+      run-output-path:
+        description: 'Path to the SupportEvalRunOutput JSON file to gate'
+        required: true
+        type: string
+      thresholds-path:
+        description: 'Optional JSON file with threshold overrides'
+        required: false
+        default: ''
+        type: string
+      thresholds-json:
+        description: 'Optional inline JSON threshold overrides (merged after thresholds-path)'
+        required: false
+        default: ''
+        type: string
+      gate-result-path:
+        description: 'Optional output path for the SupportEvalGateResult JSON artifact'
+        required: false
+        default: 'artifacts/support-bot-eval-gate-result.json'
+        type: string
+  workflow_call:
+    inputs:
+      run-output-path:
+        description: 'Path to the SupportEvalRunOutput JSON file to gate'
+        required: true
+        type: string
+      thresholds-path:
+        description: 'Optional JSON file with threshold overrides'
+        required: false
+        default: ''
+        type: string
+      thresholds-json:
+        description: 'Optional inline JSON threshold overrides (merged after thresholds-path)'
+        required: false
+        default: ''
+        type: string
+      gate-result-path:
+        description: 'Optional output path for the SupportEvalGateResult JSON artifact'
+        required: false
+        default: 'artifacts/support-bot-eval-gate-result.json'
+        type: string
+
+jobs:
+  support-bot-eval-gate:
+    name: Support Bot Eval Gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+        with:
+          skip-build: 'true'
+
+      - name: Run Support Bot Eval Gate
+        uses: ./.github/actions/tests/run-support-bot-eval-gate
+        with:
+          run-output-path: ${{ inputs.run-output-path }}
+          thresholds-path: ${{ inputs.thresholds-path }}
+          thresholds-json: ${{ inputs.thresholds-json }}
+          gate-result-path: ${{ inputs.gate-result-path }}
+
+      - name: Upload Support Bot Eval Gate Result
+        if: ${{ always() && !cancelled() && inputs.gate-result-path != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: support-bot-eval-gate-result
+          path: ${{ inputs.gate-result-path }}
+          retention-days: 30

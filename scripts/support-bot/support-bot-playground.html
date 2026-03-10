@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Support Bot Local Playground</title>
+    <style>
+      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 16px; background: #0f172a; color: #e2e8f0; }
+      .panel { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
+      .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      textarea, input, button { font: inherit; }
+      textarea, input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 8px; border: 1px solid #475569; background: #020617; color: inherit; }
+      button { padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #1d4ed8; color: white; cursor: pointer; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #020617; padding: 10px; border-radius: 8px; max-height: 260px; overflow: auto; }
+      code { color: #bfdbfe; }
+      .muted { color: #94a3b8; }
+    </style>
+  </head>
+  <body>
+    <div class="panel">
+      <h1>Support bot local playground</h1>
+      <p class="muted">Developer-only smoke UI for <code>/health</code>, <code>/sources</code>, and <code>/chat</code>. Try <code>How do I install Bruno?</code> for grounded output or <code>How much does Bruno cost for teams?</code> for fallback behavior.</p>
+      <label for="query">Query</label>
+      <textarea id="query" rows="3">How do I install Bruno?</textarea>
+      <label for="fallback-message">Optional fallback message override</label>
+      <input id="fallback-message" placeholder="Optional /chat fallbackMessage">
+      <div class="row">
+        <button id="run-health" type="button">GET /health</button>
+        <button id="run-sources" type="button">GET /sources</button>
+        <button id="run-chat" type="button">POST /chat</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Health</h2>
+      <pre id="health-output">Run /health to inspect the local fixture-backed server status.</pre>
+    </div>
+
+    <div class="panel">
+      <h2>Sources</h2>
+      <p id="sources-summary" class="muted">No sources request yet.</p>
+      <div id="sources-citations" class="muted">No citations yet.</div>
+      <pre id="sources-debug">Raw /sources JSON will appear here.</pre>
+    </div>
+
+    <div class="panel">
+      <h2>Chat</h2>
+      <p><strong>Answer:</strong> <span id="chat-answer">No chat request yet.</span></p>
+      <p><strong>Fallback reason:</strong> <span id="chat-fallback">n/a</span></p>
+      <p id="chat-summary" class="muted">No chat request yet.</p>
+      <div id="chat-citations" class="muted">No citations yet.</div>
+      <pre id="chat-debug">Raw /chat JSON will appear here.</pre>
+    </div>
+
+    <script>
+      const queryInput = document.getElementById('query')
+      const fallbackMessageInput = document.getElementById('fallback-message')
+
+      function renderJson(targetId, value) {
+        document.getElementById(targetId).textContent = JSON.stringify(value, null, 2)
+      }
+
+      function renderCitations(targetId, citations) {
+        const target = document.getElementById(targetId)
+        target.innerHTML = ''
+
+        if (!citations || citations.length === 0) {
+          target.textContent = 'No citations.'
+          return
+        }
+
+        const list = document.createElement('ul')
+
+        citations.forEach((citation, index) => {
+          const item = document.createElement('li')
+          const label = document.createElement('div')
+          const reference = document.createElement(citation.url ? 'a' : 'code')
+
+          label.textContent = `${index + 1}. ${citation.title} [${citation.sourceType}, ${citation.trustTier}]`
+
+          if (citation.url) {
+            reference.href = citation.url
+            reference.target = '_blank'
+            reference.rel = 'noreferrer'
+            reference.textContent = citation.url
+          } else {
+            reference.textContent = citation.sourcePath
+          }
+
+          item.appendChild(label)
+          item.appendChild(reference)
+          list.appendChild(item)
+        })
+
+        target.appendChild(list)
+      }
+
+      async function requestJson(path, options) {
+        const response = await fetch(path, options)
+        const text = await response.text()
+        let body
+
+        try {
+          body = JSON.parse(text)
+        } catch {
+          body = { raw: text }
+        }
+
+        return { status: response.status, ok: response.ok, body }
+      }
+
+      document.getElementById('run-health').addEventListener('click', async () => {
+        const result = await requestJson('/health')
+        renderJson('health-output', result)
+      })
+
+      document.getElementById('run-sources').addEventListener('click', async () => {
+        const query = queryInput.value
+        const result = await requestJson(`/sources?query=${encodeURIComponent(query)}`)
+        const sources = result.body.sources ?? []
+        const evidence = result.body.evidence ?? {}
+
+        document.getElementById('sources-summary').textContent = `HTTP ${result.status} · intent=${result.body.route?.intent ?? 'n/a'} · evidence=${evidence.status ?? 'n/a'}${evidence.reason ? ` (${evidence.reason})` : ''}`
+        renderCitations('sources-citations', sources)
+        renderJson('sources-debug', result)
+      })
+
+      document.getElementById('run-chat').addEventListener('click', async () => {
+        const payload = { query: queryInput.value }
+
+        if (fallbackMessageInput.value.trim()) {
+          payload.fallbackMessage = fallbackMessageInput.value.trim()
+        }
+
+        const result = await requestJson('/chat', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+
+        const answer = result.body.answer ?? {}
+        const fallbackReason = result.body.reason ?? answer.fallbackReason ?? 'none'
+        document.getElementById('chat-answer').textContent = answer.content || answer.shortAnswer || 'No answer content returned.'
+        document.getElementById('chat-fallback').textContent = fallbackReason
+        document.getElementById('chat-summary').textContent = `HTTP ${result.status} · result=${result.body.result ?? 'error'} · intent=${result.body.route?.intent ?? 'n/a'} · confidence=${answer.confidence ?? 'n/a'}`
+        renderCitations('chat-citations', answer.citations ?? [])
+        renderJson('chat-debug', result)
+      })
+    </script>
+  </body>
+</html>

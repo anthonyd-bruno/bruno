@@ -51,6 +51,48 @@ function createComment(body: string, login = 'maintainer') {
   };
 }
 
+function createDiscussion(overrides: Partial<Record<string, unknown>> = {}) {
+  return {
+    number: 7,
+    title: 'Best practices for syncing support sources?',
+    body: 'What sources should we refresh most often?',
+    url: 'https://github.com/usebruno/bruno/discussions/7',
+    createdAt: '2024-03-01T00:00:00Z',
+    updatedAt: '2024-03-02T00:00:00Z',
+    isAnswered: true,
+    category: {
+      name: 'Q&A'
+    },
+    answer: {
+      body: 'Refresh changelog-style content more frequently than docs.',
+      author: {
+        login: 'core-maintainer'
+      }
+    },
+    comments: {
+      nodes: [
+        {
+          body: 'We run docs daily and changelog every few hours.',
+          author: {
+            login: 'community-user'
+          },
+          replies: {
+            nodes: [
+              {
+                body: 'That matches our current expectation.',
+                author: {
+                  login: 'maintainer'
+                }
+              }
+            ]
+          }
+        }
+      ]
+    },
+    ...overrides
+  };
+}
+
 describe('GitHubIngester', () => {
   beforeEach(() => {
     global.fetch = jest.fn() as unknown as typeof fetch;
@@ -132,17 +174,28 @@ describe('GitHubIngester', () => {
     const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
     process.env.GITHUB_TOKEN = 'env-token';
 
-    fetchMock.mockResolvedValueOnce(createJsonResponse([])).mockResolvedValueOnce(createJsonResponse([]));
+    fetchMock
+      .mockResolvedValueOnce(createJsonResponse([]))
+      .mockResolvedValueOnce(createJsonResponse([]))
+      .mockResolvedValueOnce(createJsonResponse({ data: { repository: { discussions: { nodes: [] } } } }));
 
     const ingester = new GitHubIngester();
 
     await ingester.ingest();
 
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls[0][1]).toMatchObject({
       headers: {
         Accept: 'application/vnd.github+json',
         Authorization: 'Bearer env-token'
+      }
+    });
+    expect(fetchMock.mock.calls[2][1]).toMatchObject({
+      method: 'POST',
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: 'Bearer env-token',
+        'Content-Type': 'application/json'
       }
     });
   });
@@ -198,15 +251,76 @@ describe('GitHubIngester', () => {
     expect(documents[0].id).toBe('gh-issue-99');
   });
 
+  it('fetches discussion documents through GitHub GraphQL when a token is available', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock
+      .mockResolvedValueOnce(createJsonResponse([]))
+      .mockResolvedValueOnce(createJsonResponse([]))
+      .mockResolvedValueOnce(
+        createJsonResponse({
+          data: {
+            repository: {
+              discussions: {
+                nodes: [createDiscussion()]
+              }
+            }
+          }
+        })
+      );
+
+    const ingester = new GitHubIngester({ apiToken: 'discussion-token' });
+    const documents = await ingester.ingest();
+    const expectedContent = [
+      'Discussion #7: Best practices for syncing support sources?',
+      'What sources should we refresh most often?',
+      'Accepted answer by @core-maintainer:\nRefresh changelog-style content more frequently than docs.',
+      'Comment 1 by @community-user:\nWe run docs daily and changelog every few hours.',
+      'Reply 1 by @maintainer:\nThat matches our current expectation.'
+    ].join('\n\n');
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls[2][0]).toBe('https://api.github.com/graphql');
+    expect(JSON.parse((fetchMock.mock.calls[2][1] as RequestInit).body as string)).toMatchObject({
+      variables: {
+        owner: 'usebruno',
+        repo: 'bruno',
+        first: 50,
+        commentFirst: 5,
+        replyFirst: 3
+      }
+    });
+    expect(documents).toHaveLength(1);
+    expect(documents[0]).toMatchObject({
+      id: 'gh-discussion-7',
+      sourceType: 'github',
+      url: 'https://github.com/usebruno/bruno/discussions/7',
+      title: 'Best practices for syncing support sources?',
+      content: expectedContent,
+      trustTier: TrustTier.Community,
+      metadata: {
+        github_type: 'discussion',
+        discussion_number: 7,
+        category_name: 'Q&A',
+        comment_count: 1,
+        is_answered: true,
+        created_at: '2024-03-01T00:00:00Z',
+        updated_at: '2024-03-02T00:00:00Z'
+      }
+    });
+    expect(documents[0].contentHash).toBe(createHash('sha256').update(expectedContent).digest('hex'));
+  });
+
   it('returns documents that conform to the SourceDocument schema', async () => {
     const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
 
     fetchMock
       .mockResolvedValueOnce(createJsonResponse([createRelease()]))
       .mockResolvedValueOnce(createJsonResponse([createIssue()]))
+      .mockResolvedValueOnce(createJsonResponse({ data: { repository: { discussions: { nodes: [createDiscussion()] } } } }))
       .mockResolvedValueOnce(createJsonResponse([createComment('Resolved in v1.2.3')]));
 
-    const ingester = new GitHubIngester();
+    const ingester = new GitHubIngester({ apiToken: 'schema-token' });
     const documents = await ingester.ingest();
 
     expect(() => documents.forEach((document) => sourceDocumentSchema.parse(document))).not.toThrow();

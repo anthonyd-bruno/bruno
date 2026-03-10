@@ -9,6 +9,7 @@ import {
   type SearchOptions,
   type SearchResult
 } from './types';
+import { rerankSearchResults } from './ranking';
 import { VectorStore } from './vector-store';
 
 function matchesFilter(chunk: IndexedChunk, filter?: FilterOptions): boolean {
@@ -76,24 +77,28 @@ export class HybridIndex {
       return [];
     }
 
-    if (mode === 'vector') {
-      return this.vectorStore.search(queryEmbedding, { topK, filter }).map((result) => ({
-        ...result,
-        vectorScore: result.score
-      }));
-    }
-
-    if (mode === 'keyword') {
-      return this.keywordStore.search(query, { topK, filter }).map((result) => ({
-        ...result,
-        keywordScore: result.score
-      }));
-    }
-
     const candidateCount = Array.from(this.chunks.values()).filter((chunk) => matchesFilter(chunk, filter)).length;
 
     if (candidateCount === 0) {
       return [];
+    }
+
+    if (mode === 'vector') {
+      const results = this.vectorStore.search(queryEmbedding, { topK: candidateCount, filter }).map((result) => ({
+        ...result,
+        vectorScore: result.score
+      }));
+
+      return rerankSearchResults(results, options?.ranking).slice(0, topK);
+    }
+
+    if (mode === 'keyword') {
+      const results = this.keywordStore.search(query, { topK: candidateCount, filter }).map((result) => ({
+        ...result,
+        keywordScore: result.score
+      }));
+
+      return rerankSearchResults(results, options?.ranking).slice(0, topK);
     }
 
     const vectorResults = this.vectorStore.search(queryEmbedding, { topK: candidateCount, filter });
@@ -109,7 +114,7 @@ export class HybridIndex {
     const keywordWeight = options?.keywordWeight ?? DEFAULT_KEYWORD_WEIGHT;
     const chunkIds = new Set([...vectorScores.keys(), ...keywordScores.keys()]);
 
-    return Array.from(chunkIds)
+    const results = Array.from(chunkIds)
       .flatMap((chunkId) => {
         const chunk = this.chunks.get(chunkId);
 
@@ -129,7 +134,8 @@ export class HybridIndex {
           }
         ];
       })
-      .sort((left, right) => right.score - left.score)
-      .slice(0, topK);
+      .sort((left, right) => right.score - left.score);
+
+    return rerankSearchResults(results, options?.ranking).slice(0, topK);
   }
 }

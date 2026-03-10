@@ -1,0 +1,49 @@
+name: 'Run Support Bot Eval Gate'
+description: 'Build the support-evals package, evaluate a SupportEvalRunOutput JSON, and fail when launch thresholds are not met'
+inputs:
+  run-output-path:
+    description: 'Path to the SupportEvalRunOutput JSON file to gate'
+    required: true
+  thresholds-path:
+    description: 'Optional JSON file with support eval threshold overrides'
+    required: false
+    default: ''
+  thresholds-json:
+    description: 'Optional inline JSON threshold overrides (merged after thresholds-path)'
+    required: false
+    default: ''
+  gate-result-path:
+    description: 'Optional output path for the SupportEvalGateResult JSON artifact'
+    required: false
+    default: 'artifacts/support-bot-eval-gate-result.json'
+runs:
+  using: 'composite'
+  steps:
+    - name: Build support eval package
+      shell: bash
+      run: npm run build --workspace=packages/bruno-support-evals
+
+    - name: Run support bot eval gate
+      shell: bash
+      env:
+        RUN_OUTPUT_PATH: ${{ inputs.run-output-path }}
+        THRESHOLDS_PATH: ${{ inputs.thresholds-path }}
+        THRESHOLDS_JSON: ${{ inputs.thresholds-json }}
+        GATE_RESULT_PATH: ${{ inputs.gate-result-path }}
+      run: |
+        set -euo pipefail
+        args=(--input "$RUN_OUTPUT_PATH")
+
+        if [ -n "$THRESHOLDS_PATH" ]; then
+          args+=(--thresholds-file "$THRESHOLDS_PATH")
+        fi
+
+        if [ -n "$THRESHOLDS_JSON" ]; then
+          args+=(--thresholds-json "$THRESHOLDS_JSON")
+        fi
+
+        if [ -n "$GATE_RESULT_PATH" ]; then
+          args+=(--output "$GATE_RESULT_PATH")
+        fi
+
+        npm run gate --workspace=packages/bruno-support-evals -- "${args[@]}"

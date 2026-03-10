@@ -1,0 +1,60 @@
+name: Support Bot Sync
+
+on:
+  schedule:
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+
+jobs:
+  support-bot-sync:
+    name: Support Bot Sync
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      discussions: read
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SUPPORT_SYNC_REPORT_PATH: artifacts/support-bot-sync-report.json
+      SUPPORT_SYNC_STATE_PATH: artifacts/support-bot-sync-state.json
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node Dependencies
+        uses: ./.github/actions/common/setup-node-deps
+        with:
+          skip-build: 'true'
+
+      - name: Restore Support Bot Sync State
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ env.SUPPORT_SYNC_STATE_PATH }}
+          key: support-bot-sync-state-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            support-bot-sync-state-${{ github.ref_name }}-
+
+      - name: Build Support Indexer
+        run: npm run build --workspace=packages/bruno-support-indexer
+
+      - name: Run Scheduled Support Sync
+        run: >-
+          node scripts/support-bot/run-support-bot-sync.js
+          --output "$SUPPORT_SYNC_REPORT_PATH"
+          --state-file "$SUPPORT_SYNC_STATE_PATH"
+
+      - name: Upload Support Bot Sync Artifacts
+        if: ${{ always() && !cancelled() }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: support-bot-sync
+          path: |
+            ${{ env.SUPPORT_SYNC_REPORT_PATH }}
+            ${{ env.SUPPORT_SYNC_STATE_PATH }}
+          retention-days: 30
+
+      - name: Save Support Bot Sync State
+        if: ${{ always() && !cancelled() && hashFiles('artifacts/support-bot-sync-state.json') != '' }}
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ env.SUPPORT_SYNC_STATE_PATH }}
+          key: support-bot-sync-state-${{ github.ref_name }}-${{ github.run_id }}

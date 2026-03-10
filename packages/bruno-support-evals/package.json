@@ -7,11 +7,13 @@
   "types": "dist/index.d.ts",
   "files": [
     "dist",
+    "scripts",
     "src",
     "package.json"
   ],
   "scripts": {
     "clean": "rimraf dist",
+    "gate": "node ./scripts/run-support-eval-gate.js",
     "test": "jest --passWithNoTests",
     "prebuild": "npm run clean",
     "build": "rollup -c",
