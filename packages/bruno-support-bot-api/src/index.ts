@@ -1,5 +1,6 @@
 export * from './grounded-prompt-policy';
 export * from './answer-generation-adapter';
+export * from './openai-answer-generation-adapter';
 export * from './prompt-builder';
 export * from './answer-assembly';
 export * from './api-contracts';
@@ -14,6 +15,7 @@ import {
   GROUNDED_PROMPT_POLICY_VERSION,
   assessEvidenceStrength
 } from './grounded-prompt-policy';
+import { OpenAIAnswerGenerationAdapter } from './openai-answer-generation-adapter';
 import { buildAnswerGenerationRequest } from './prompt-builder';
 import { assembleSupportAnswer, toSharedAnswer, toSharedCitation } from './answer-assembly';
 import { buildFallbackMessage, classifySafetyAndEscalation, OFFICIAL_BRUNO_DESTINATIONS } from './safety-escalation';
@@ -30,6 +32,7 @@ export const supportBotApi = {
   DEFAULT_GROUNDED_PROMPT_POLICY,
   GROUNDED_PROMPT_POLICY_VERSION,
   assessEvidenceStrength,
+  OpenAIAnswerGenerationAdapter,
   buildAnswerGenerationRequest,
   assembleSupportAnswer,
   classifySafetyAndEscalation,

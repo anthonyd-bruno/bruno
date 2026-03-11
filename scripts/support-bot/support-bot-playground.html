@@ -3,80 +3,374 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Support Bot Local Playground</title>
+    <title>Support Bot Local Prototype Shell</title>
     <style>
-      body { font-family: ui-sans-serif, system-ui, sans-serif; margin: 0; padding: 16px; background: #0f172a; color: #e2e8f0; }
-      .panel { background: #111827; border: 1px solid #334155; border-radius: 10px; padding: 12px; margin-bottom: 12px; }
-      .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      :root {
+        color-scheme: dark;
+        --bg: #020617;
+        --panel: #0f172a;
+        --panel-soft: #111827;
+        --border: #334155;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+        --accent: #3b82f6;
+        --accent-soft: rgba(59, 130, 246, 0.16);
+        --bot: #13233f;
+        --user: #172554;
+        --warn: #7c2d12;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 16px;
+        font-family: ui-sans-serif, system-ui, sans-serif;
+        background: radial-gradient(circle at top, #0f172a 0%, var(--bg) 55%);
+        color: var(--text);
+      }
+
       textarea, input, button { font: inherit; }
-      textarea, input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 8px; border: 1px solid #475569; background: #020617; color: inherit; }
-      button { padding: 8px 12px; border-radius: 8px; border: 1px solid #475569; background: #1d4ed8; color: white; cursor: pointer; }
-      pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #020617; padding: 10px; border-radius: 8px; max-height: 260px; overflow: auto; }
+      textarea, input {
+        width: 100%;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid #475569;
+        background: #020617;
+        color: inherit;
+      }
+
+      button {
+        border: 1px solid #4f46e5;
+        background: linear-gradient(180deg, #2563eb 0%, #1d4ed8 100%);
+        color: white;
+        border-radius: 999px;
+        padding: 9px 14px;
+        cursor: pointer;
+      }
+
+      button.secondary {
+        background: transparent;
+        border-color: #475569;
+        color: var(--text);
+      }
+
+      button:disabled { opacity: 0.6; cursor: wait; }
       code { color: #bfdbfe; }
-      .muted { color: #94a3b8; }
+      pre {
+        margin: 0;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: #020617;
+        padding: 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(71, 85, 105, 0.45);
+        max-height: 320px;
+        overflow: auto;
+      }
+
+      .shell {
+        max-width: 1360px;
+        margin: 0 auto;
+        display: grid;
+        gap: 16px;
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.92);
+        border: 1px solid rgba(51, 65, 85, 0.9);
+        border-radius: 18px;
+        padding: 16px;
+        box-shadow: 0 14px 40px rgba(2, 6, 23, 0.32);
+      }
+
+      .hero {
+        display: grid;
+        gap: 10px;
+      }
+
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #93c5fd;
+      }
+
+      .hero h1, .panel h2, .panel h3 { margin: 0; }
+      .muted { color: var(--muted); }
+      .row, .button-row, .chip-row, .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+
+      .stack { display: grid; gap: 12px; }
+      .sidebar p { margin: 0; }
+      .chip {
+        background: rgba(148, 163, 184, 0.08);
+        border: 1px solid rgba(71, 85, 105, 0.8);
+        color: var(--text);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: rgba(148, 163, 184, 0.12);
+        color: #cbd5e1;
+        border: 1px solid rgba(71, 85, 105, 0.9);
+      }
+
+      .badge.status-ok { background: rgba(22, 163, 74, 0.18); border-color: rgba(22, 163, 74, 0.45); }
+      .badge.status-warn { background: rgba(234, 179, 8, 0.16); border-color: rgba(234, 179, 8, 0.38); }
+      .badge.status-error { background: rgba(239, 68, 68, 0.18); border-color: rgba(239, 68, 68, 0.45); }
+
+      .conversation {
+        min-height: 520px;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+        gap: 14px;
+      }
+
+      .messages {
+        display: grid;
+        gap: 12px;
+        align-content: start;
+        max-height: 620px;
+        overflow: auto;
+        padding-right: 4px;
+      }
+
+      .message {
+        display: grid;
+        gap: 8px;
+      }
+
+      .message-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .bubble {
+        border-radius: 18px;
+        border: 1px solid rgba(71, 85, 105, 0.8);
+        padding: 14px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        background: var(--panel-soft);
+      }
+
+      .message.user .bubble { background: var(--user); }
+      .message.assistant .bubble { background: var(--bot); }
+      .message.system .bubble { background: rgba(59, 130, 246, 0.08); }
+      .message.error .bubble { background: rgba(127, 29, 29, 0.45); border-color: rgba(248, 113, 113, 0.4); }
+
+      .composer {
+        display: grid;
+        gap: 12px;
+        padding-top: 4px;
+        border-top: 1px solid rgba(51, 65, 85, 0.9);
+      }
+
+      .inspector-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .inspector {
+        display: grid;
+        gap: 10px;
+        align-content: start;
+      }
+
+      .citations { display: grid; gap: 8px; }
+      .citation {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.72);
+        border: 1px solid rgba(71, 85, 105, 0.75);
+      }
+
+      .citation-title { font-weight: 600; margin-bottom: 4px; }
+      .citation-meta { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+      .citation a, .citation code { color: #93c5fd; }
+
+      details summary {
+        cursor: pointer;
+        color: #cbd5e1;
+      }
+
+      .empty-state {
+        color: var(--muted);
+        border: 1px dashed rgba(71, 85, 105, 0.7);
+        border-radius: 12px;
+        padding: 12px;
+      }
+
+      @media (max-width: 1080px) {
+        .layout,
+        .inspector-grid {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
   </head>
   <body>
-    <div class="panel">
-      <h1>Support bot local playground</h1>
-      <p class="muted">Developer-only smoke UI for <code>/health</code>, <code>/sources</code>, and <code>/chat</code>. Try <code>How do I install Bruno?</code> for grounded output or <code>How much does Bruno cost for teams?</code> for fallback behavior.</p>
-      <label for="query">Query</label>
-      <textarea id="query" rows="3">How do I install Bruno?</textarea>
-      <label for="fallback-message">Optional fallback message override</label>
-      <input id="fallback-message" placeholder="Optional /chat fallbackMessage">
-      <div class="row">
-        <button id="run-health" type="button">GET /health</button>
-        <button id="run-sources" type="button">GET /sources</button>
-        <button id="run-chat" type="button">POST /chat</button>
-      </div>
-    </div>
+    <div class="shell">
+      <section class="panel hero">
+        <div class="eyebrow">developer-local • non-productized prototype</div>
+        <h1>Support bot local prototype shell</h1>
+        <p class="muted">Thin static shell on top of the existing launcher path. It is intentionally a developer tool, not app UI: keep the raw citations, fallback signals, and payload debug details visible while exercising <code>/health</code>, <code>/sources</code>, and <code>/chat</code>.</p>
+        <div class="badge-row">
+          <span id="service-status" class="badge status-warn">API status: unchecked</span>
+          <span id="last-action" class="badge">No requests yet</span>
+        </div>
+      </section>
 
-    <div class="panel">
-      <h2>Health</h2>
-      <pre id="health-output">Run /health to inspect the local fixture-backed server status.</pre>
-    </div>
+      <section class="layout">
+        <aside class="panel sidebar stack">
+          <div class="stack">
+            <h2>Composer</h2>
+            <label for="query">Prompt</label>
+            <textarea id="query" rows="4">How do I install Bruno?</textarea>
+            <label for="fallback-message">Optional fallback message override</label>
+            <input id="fallback-message" placeholder="Optional /chat fallbackMessage">
+          </div>
 
-    <div class="panel">
-      <h2>Sources</h2>
-      <p id="sources-summary" class="muted">No sources request yet.</p>
-      <div id="sources-citations" class="muted">No citations yet.</div>
-      <pre id="sources-debug">Raw /sources JSON will appear here.</pre>
-    </div>
+          <div class="stack">
+            <h3>Quick prompts</h3>
+            <div class="chip-row">
+              <button class="chip secondary quick-prompt" data-query="How do I install Bruno?" type="button">Install</button>
+              <button class="chip secondary quick-prompt" data-query="How do I use bearer auth in Bruno?" type="button">Auth</button>
+              <button class="chip secondary quick-prompt" data-query="How much does Bruno cost for teams?" type="button">Fallback</button>
+            </div>
+          </div>
 
-    <div class="panel">
-      <h2>Chat</h2>
-      <p><strong>Answer:</strong> <span id="chat-answer">No chat request yet.</span></p>
-      <p><strong>Fallback reason:</strong> <span id="chat-fallback">n/a</span></p>
-      <p id="chat-summary" class="muted">No chat request yet.</p>
-      <div id="chat-citations" class="muted">No citations yet.</div>
-      <pre id="chat-debug">Raw /chat JSON will appear here.</pre>
+          <div class="button-row">
+            <button id="run-health" class="secondary" type="button">GET /health</button>
+            <button id="run-sources" class="secondary" type="button">GET /sources</button>
+          </div>
+
+          <div class="stack">
+            <p class="muted">Use <code>POST /chat</code> for the transcript path. Use <code>GET /sources</code> when you want retrieval-only inspection without generation.</p>
+            <button id="run-chat" type="button">Send to /chat</button>
+            <button id="clear-chat" class="secondary" type="button">Clear transcript</button>
+          </div>
+        </aside>
+
+        <section class="panel conversation">
+          <div class="stack">
+            <h2>Transcript</h2>
+            <p class="muted">Future-chat shape, current-dev behavior. Each assistant turn still leaves the evidence, fallback, and raw response visible in the inspectors below.</p>
+          </div>
+
+          <div id="messages" class="messages"></div>
+
+          <div class="composer">
+            <div class="badge-row">
+              <span class="badge">Uses existing local launcher seam</span>
+              <span class="badge">No auth, no persistence, no analytics</span>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section class="inspector-grid">
+        <section class="panel inspector">
+          <h2>Health inspector</h2>
+          <p id="health-summary" class="muted">Run <code>/health</code> to confirm the launcher is up.</p>
+          <pre id="health-output">Raw /health JSON will appear here.</pre>
+        </section>
+
+        <section class="panel inspector">
+          <h2>Sources inspector</h2>
+          <p id="sources-summary" class="muted">No sources request yet.</p>
+          <div id="sources-citations" class="citations empty-state">No citations yet.</div>
+          <details>
+            <summary>Raw /sources payload</summary>
+            <pre id="sources-debug">Raw /sources JSON will appear here.</pre>
+          </details>
+        </section>
+
+        <section class="panel inspector">
+          <h2>Response inspector</h2>
+          <p id="chat-summary" class="muted">No chat request yet.</p>
+          <p><strong>Fallback reason:</strong> <span id="chat-fallback">n/a</span></p>
+          <div id="chat-citations" class="citations empty-state">No citations yet.</div>
+          <details>
+            <summary>Raw /chat payload</summary>
+            <pre id="chat-debug">Raw /chat JSON will appear here.</pre>
+          </details>
+        </section>
+      </section>
     </div>
 
     <script>
       const queryInput = document.getElementById('query')
       const fallbackMessageInput = document.getElementById('fallback-message')
+      const messages = document.getElementById('messages')
+      const serviceStatus = document.getElementById('service-status')
+      const lastAction = document.getElementById('last-action')
+      const actionButtons = ['run-health', 'run-sources', 'run-chat'].map((id) => document.getElementById(id))
+
+      function formatNow() {
+        return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      }
+
+      function setActionLabel(text) {
+        lastAction.textContent = `${text} · ${formatNow()}`
+      }
+
+      function setBusy(isBusy) {
+        actionButtons.forEach((button) => {
+          button.disabled = isBusy
+        })
+      }
 
       function renderJson(targetId, value) {
         document.getElementById(targetId).textContent = JSON.stringify(value, null, 2)
       }
 
-      function renderCitations(targetId, citations) {
+      function resetCitationTarget(targetId) {
         const target = document.getElementById(targetId)
         target.innerHTML = ''
+        target.classList.remove('empty-state')
+        return target
+      }
+
+      function renderCitations(targetId, citations) {
+        const target = resetCitationTarget(targetId)
 
         if (!citations || citations.length === 0) {
           target.textContent = 'No citations.'
+          target.classList.add('empty-state')
           return
         }
 
-        const list = document.createElement('ul')
-
         citations.forEach((citation, index) => {
-          const item = document.createElement('li')
-          const label = document.createElement('div')
+          const item = document.createElement('div')
+          const title = document.createElement('div')
+          const meta = document.createElement('div')
           const reference = document.createElement(citation.url ? 'a' : 'code')
 
-          label.textContent = `${index + 1}. ${citation.title} [${citation.sourceType}, ${citation.trustTier}]`
+          item.className = 'citation'
+          title.className = 'citation-title'
+          meta.className = 'citation-meta'
+          title.textContent = `${index + 1}. ${citation.title}`
+          meta.textContent = `${citation.sourceType} · ${citation.trustTier} · score=${citation.retrievalScore}`
 
           if (citation.url) {
             reference.href = citation.url
@@ -87,51 +381,169 @@
             reference.textContent = citation.sourcePath
           }
 
-          item.appendChild(label)
+          item.appendChild(title)
+          item.appendChild(meta)
           item.appendChild(reference)
-          list.appendChild(item)
-        })
 
-        target.appendChild(list)
+          if (citation.headingAnchor) {
+            const anchor = document.createElement('div')
+            anchor.className = 'citation-meta'
+            anchor.textContent = `anchor: ${citation.headingAnchor}`
+            item.appendChild(anchor)
+          }
+
+          target.appendChild(item)
+        })
+      }
+
+      function appendMessage({ role, title, body, meta, citations }) {
+        const wrapper = document.createElement('section')
+        const header = document.createElement('div')
+        const label = document.createElement('strong')
+        const timestamp = document.createElement('span')
+        const bubble = document.createElement('div')
+
+        wrapper.className = `message ${role}`
+        header.className = 'message-header'
+        bubble.className = 'bubble'
+        label.textContent = title
+        timestamp.textContent = meta ? `${meta} · ${formatNow()}` : formatNow()
+        bubble.textContent = body
+
+        header.appendChild(label)
+        header.appendChild(timestamp)
+        wrapper.appendChild(header)
+        wrapper.appendChild(bubble)
+
+        if (citations && citations.length > 0) {
+          const citationTarget = document.createElement('div')
+          citationTarget.className = 'citations'
+          wrapper.appendChild(citationTarget)
+
+          citations.forEach((citation, index) => {
+            const item = document.createElement('div')
+            const line = document.createElement(citation.url ? 'a' : 'code')
+
+            item.className = 'citation'
+            item.innerHTML = `<div class="citation-title">${index + 1}. ${citation.title}</div><div class="citation-meta">${citation.sourceType} · ${citation.trustTier}</div>`
+
+            if (citation.url) {
+              line.href = citation.url
+              line.target = '_blank'
+              line.rel = 'noreferrer'
+              line.textContent = citation.url
+            } else {
+              line.textContent = citation.sourcePath
+            }
+
+            item.appendChild(line)
+            citationTarget.appendChild(item)
+          })
+        }
+
+        messages.appendChild(wrapper)
+        messages.scrollTop = messages.scrollHeight
+      }
+
+      function setServiceStatus(kind, text) {
+        serviceStatus.className = `badge ${kind}`
+        serviceStatus.textContent = text
       }
 
       async function requestJson(path, options) {
-        const response = await fetch(path, options)
-        const text = await response.text()
-        let body
-
         try {
-          body = JSON.parse(text)
-        } catch {
-          body = { raw: text }
-        }
+          const response = await fetch(path, options)
+          const text = await response.text()
+          let body
 
-        return { status: response.status, ok: response.ok, body }
+          try {
+            body = JSON.parse(text)
+          } catch {
+            body = { raw: text }
+          }
+
+          return { status: response.status, ok: response.ok, body }
+        } catch (error) {
+          return {
+            status: 0,
+            ok: false,
+            body: {
+              ok: false,
+              error: {
+                code: 'network_error',
+                message: error instanceof Error ? error.message : String(error)
+              }
+            }
+          }
+        }
       }
 
-      document.getElementById('run-health').addEventListener('click', async () => {
+      function setQuery(value) {
+        queryInput.value = value
+        queryInput.focus()
+      }
+
+      function resetTranscript() {
+        messages.innerHTML = ''
+        appendMessage({
+          role: 'system',
+          title: 'System',
+          meta: 'Prototype shell ready',
+          body: 'Send a prompt to /chat for a transcript turn. Use /sources when you want retrieval-only inspection. This surface is intentionally local-only and keeps raw/debug context exposed.'
+        })
+      }
+
+      function summarizeEvidence(result) {
+        const evidence = result.body.evidence ?? {}
+        return `HTTP ${result.status} · intent=${result.body.route?.intent ?? 'n/a'} · evidence=${evidence.status ?? 'n/a'}${evidence.reason ? ` (${evidence.reason})` : ''}`
+      }
+
+      async function runHealth() {
+        setBusy(true)
         const result = await requestJson('/health')
         renderJson('health-output', result)
-      })
+        document.getElementById('health-summary').textContent = result.ok
+          ? `HTTP ${result.status} · service=${result.body.service ?? 'n/a'} · policy=${result.body.policyVersion ?? 'n/a'}`
+          : `HTTP ${result.status || 'network'} · ${result.body.error?.message ?? 'Request failed.'}`
 
-      document.getElementById('run-sources').addEventListener('click', async () => {
-        const query = queryInput.value
+        if (result.ok) {
+          setServiceStatus('status-ok', `API status: ${result.body.status}`)
+        } else {
+          setServiceStatus('status-error', 'API status: request failed')
+        }
+
+        setActionLabel('Last action: /health')
+        setBusy(false)
+      }
+
+      async function runSources() {
+        setBusy(true)
+        const query = queryInput.value.trim()
         const result = await requestJson(`/sources?query=${encodeURIComponent(query)}`)
-        const sources = result.body.sources ?? []
-        const evidence = result.body.evidence ?? {}
 
-        document.getElementById('sources-summary').textContent = `HTTP ${result.status} · intent=${result.body.route?.intent ?? 'n/a'} · evidence=${evidence.status ?? 'n/a'}${evidence.reason ? ` (${evidence.reason})` : ''}`
-        renderCitations('sources-citations', sources)
+        document.getElementById('sources-summary').textContent = summarizeEvidence(result)
+        renderCitations('sources-citations', result.body.sources ?? [])
         renderJson('sources-debug', result)
-      })
+        setActionLabel('Last action: /sources')
+        setBusy(false)
+      }
 
-      document.getElementById('run-chat').addEventListener('click', async () => {
-        const payload = { query: queryInput.value }
+      async function runChat() {
+        const query = queryInput.value.trim()
+
+        if (!query) {
+          appendMessage({ role: 'error', title: 'Validation', meta: 'local shell', body: 'Query is required before calling /chat.' })
+          return
+        }
+
+        const payload = { query }
 
         if (fallbackMessageInput.value.trim()) {
           payload.fallbackMessage = fallbackMessageInput.value.trim()
         }
 
+        appendMessage({ role: 'user', title: 'Developer prompt', meta: 'queued to /chat', body: query })
+        setBusy(true)
         const result = await requestJson('/chat', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -140,12 +552,46 @@
 
         const answer = result.body.answer ?? {}
         const fallbackReason = result.body.reason ?? answer.fallbackReason ?? 'none'
-        document.getElementById('chat-answer').textContent = answer.content || answer.shortAnswer || 'No answer content returned.'
+        const summary = `HTTP ${result.status} · result=${result.body.result ?? 'error'} · intent=${result.body.route?.intent ?? 'n/a'} · confidence=${answer.confidence ?? 'n/a'}`
+
+        document.getElementById('chat-summary').textContent = summary
         document.getElementById('chat-fallback').textContent = fallbackReason
-        document.getElementById('chat-summary').textContent = `HTTP ${result.status} · result=${result.body.result ?? 'error'} · intent=${result.body.route?.intent ?? 'n/a'} · confidence=${answer.confidence ?? 'n/a'}`
         renderCitations('chat-citations', answer.citations ?? [])
         renderJson('chat-debug', result)
+
+        if (result.ok && result.body.ok) {
+          const assistantBody = answer.content || answer.shortAnswer || 'No answer content returned.'
+          const metaParts = [result.body.result ?? 'answer', `fallback=${fallbackReason}`]
+          appendMessage({
+            role: 'assistant',
+            title: 'Assistant',
+            meta: metaParts.join(' · '),
+            body: `${assistantBody}\n\n${summary}`,
+            citations: answer.citations ?? []
+          })
+        } else {
+          appendMessage({
+            role: 'error',
+            title: 'API error',
+            meta: `HTTP ${result.status || 'network'}`,
+            body: result.body.error?.message ?? 'The local shell request failed.'
+          })
+        }
+
+        setActionLabel('Last action: /chat')
+        setBusy(false)
+      }
+
+      document.querySelectorAll('.quick-prompt').forEach((button) => {
+        button.addEventListener('click', () => setQuery(button.dataset.query || ''))
       })
+
+      document.getElementById('run-health').addEventListener('click', runHealth)
+      document.getElementById('run-sources').addEventListener('click', runSources)
+      document.getElementById('run-chat').addEventListener('click', runChat)
+      document.getElementById('clear-chat').addEventListener('click', resetTranscript)
+
+      resetTranscript()
     </script>
   </body>
 </html>

@@ -1,0 +1,262 @@
+{
+  "version": 1,
+  "status": "failed",
+  "startedAt": "2026-03-10T17:47:42.851Z",
+  "completedAt": "2026-03-10T17:48:18.334Z",
+  "schedule": {
+    "sourceGroups": [
+      {
+        "id": "repo",
+        "label": "Repo docs/content",
+        "cadenceHours": 24,
+        "staleAfterHours": 36
+      },
+      {
+        "id": "docs",
+        "label": "Docs site",
+        "cadenceHours": 24,
+        "staleAfterHours": 36
+      },
+      {
+        "id": "website_high_churn",
+        "label": "Website changelog/downloads/pricing",
+        "cadenceHours": 4,
+        "staleAfterHours": 8
+      },
+      {
+        "id": "website_daily",
+        "label": "Website core/support pages",
+        "cadenceHours": 24,
+        "staleAfterHours": 36
+      },
+      {
+        "id": "github",
+        "label": "GitHub releases/issues/discussions",
+        "cadenceHours": 24,
+        "staleAfterHours": 36
+      }
+    ],
+    "retry": {
+      "maxAttempts": 3,
+      "baseDelayMs": 250
+    }
+  },
+  "totals": {
+    "executedGroupCount": 5,
+    "successfulGroupCount": 2,
+    "failedGroupCount": 3,
+    "skippedGroupCount": 0,
+    "documentCount": 118
+  },
+  "sourceGroups": [
+    {
+      "id": "repo",
+      "label": "Repo docs/content",
+      "cadenceHours": 24,
+      "staleAfterHours": 36,
+      "status": "succeeded",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "succeeded",
+          "startedAt": "2026-03-10T17:47:42.851Z",
+          "completedAt": "2026-03-10T17:47:46.710Z",
+          "durationMs": 3859,
+          "documentCount": 115
+        }
+      ],
+      "documentCount": 115,
+      "lastSuccessfulAtAfterRun": "2026-03-10T17:47:46.710Z",
+      "nextDueAt": "2026-03-11T17:47:46.710Z"
+    },
+    {
+      "id": "docs",
+      "label": "Docs site",
+      "cadenceHours": 24,
+      "staleAfterHours": 36,
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:47:46.711Z",
+          "completedAt": "2026-03-10T17:47:55.778Z",
+          "durationMs": 9067,
+          "documentCount": 0,
+          "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
+        },
+        {
+          "attempt": 2,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:47:56.029Z",
+          "completedAt": "2026-03-10T17:48:04.322Z",
+          "durationMs": 8293,
+          "documentCount": 0,
+          "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
+        },
+        {
+          "attempt": 3,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:04.822Z",
+          "completedAt": "2026-03-10T17:48:13.696Z",
+          "durationMs": 8874,
+          "documentCount": 0,
+          "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
+        }
+      ],
+      "documentCount": 0
+    },
+    {
+      "id": "website_high_churn",
+      "label": "Website changelog/downloads/pricing",
+      "cadenceHours": 4,
+      "staleAfterHours": 8,
+      "status": "succeeded",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "succeeded",
+          "startedAt": "2026-03-10T17:48:13.696Z",
+          "completedAt": "2026-03-10T17:48:14.095Z",
+          "durationMs": 399,
+          "documentCount": 3
+        }
+      ],
+      "documentCount": 3,
+      "lastSuccessfulAtAfterRun": "2026-03-10T17:48:14.095Z",
+      "nextDueAt": "2026-03-10T21:48:14.095Z"
+    },
+    {
+      "id": "website_daily",
+      "label": "Website core/support pages",
+      "cadenceHours": 24,
+      "staleAfterHours": 36,
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:14.095Z",
+          "completedAt": "2026-03-10T17:48:14.306Z",
+          "durationMs": 211,
+          "documentCount": 0,
+          "error": "Website request failed with status 404 for https://www.usebruno.com/about"
+        },
+        {
+          "attempt": 2,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:14.557Z",
+          "completedAt": "2026-03-10T17:48:14.670Z",
+          "durationMs": 113,
+          "documentCount": 0,
+          "error": "Website request failed with status 404 for https://www.usebruno.com/about"
+        },
+        {
+          "attempt": 3,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:15.171Z",
+          "completedAt": "2026-03-10T17:48:15.282Z",
+          "durationMs": 111,
+          "documentCount": 0,
+          "error": "Website request failed with status 404 for https://www.usebruno.com/about"
+        }
+      ],
+      "documentCount": 0
+    },
+    {
+      "id": "github",
+      "label": "GitHub releases/issues/discussions",
+      "cadenceHours": 24,
+      "staleAfterHours": 36,
+      "status": "failed",
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:15.282Z",
+          "completedAt": "2026-03-10T17:48:16.984Z",
+          "durationMs": 1702,
+          "documentCount": 0,
+          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/issues/1033/comments?per_page=10"
+        },
+        {
+          "attempt": 2,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:17.236Z",
+          "completedAt": "2026-03-10T17:48:17.534Z",
+          "durationMs": 298,
+          "documentCount": 0,
+          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/issues?state=closed&sort=comments&direction=desc&per_page=100"
+        },
+        {
+          "attempt": 3,
+          "status": "failed",
+          "startedAt": "2026-03-10T17:48:18.035Z",
+          "completedAt": "2026-03-10T17:48:18.334Z",
+          "durationMs": 299,
+          "documentCount": 0,
+          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/releases?per_page=50"
+        }
+      ],
+      "documentCount": 0
+    }
+  ],
+  "staleReport": {
+    "checkedAt": "2026-03-10T17:48:18.334Z",
+    "status": "stale",
+    "staleGroupIds": [
+      "docs",
+      "website_daily",
+      "github"
+    ],
+    "groups": [
+      {
+        "id": "repo",
+        "label": "Repo docs/content",
+        "cadenceHours": 24,
+        "staleAfterHours": 36,
+        "status": "fresh",
+        "lastSuccessfulAt": "2026-03-10T17:47:46.710Z",
+        "ageHours": 0.01
+      },
+      {
+        "id": "docs",
+        "label": "Docs site",
+        "cadenceHours": 24,
+        "staleAfterHours": 36,
+        "status": "never_synced"
+      },
+      {
+        "id": "website_high_churn",
+        "label": "Website changelog/downloads/pricing",
+        "cadenceHours": 4,
+        "staleAfterHours": 8,
+        "status": "fresh",
+        "lastSuccessfulAt": "2026-03-10T17:48:14.095Z",
+        "ageHours": 0
+      },
+      {
+        "id": "website_daily",
+        "label": "Website core/support pages",
+        "cadenceHours": 24,
+        "staleAfterHours": 36,
+        "status": "never_synced"
+      },
+      {
+        "id": "github",
+        "label": "GitHub releases/issues/discussions",
+        "cadenceHours": 24,
+        "staleAfterHours": 36,
+        "status": "never_synced"
+      }
+    ]
+  },
+  "state": {
+    "version": 1,
+    "lastSuccessfulRunByGroup": {
+      "repo": "2026-03-10T17:47:46.710Z",
+      "website_high_churn": "2026-03-10T17:48:14.095Z"
+    },
+    "updatedAt": "2026-03-10T17:48:18.334Z"
+  }
+}
