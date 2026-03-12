@@ -4,6 +4,18 @@ const fs = require('fs')
 const { createServer } = require('http')
 const path = require('path')
 
+const {
+  DEFAULT_LOCAL_PROVIDER,
+  REPO_ROOT_DOTENV_PATH,
+  getOllamaAnswerGenerationConfig,
+  getOllamaEmbeddingProviderConfig,
+  getOpenAIAnswerGenerationConfig,
+  getOpenAIEmbeddingProviderConfig,
+  loadRepoRootDotEnv,
+  requireOpenAIApiKey,
+  resolveLocalProvider
+} = require('./local-provider-config')
+
 const PLAYGROUND_HTML_PATH = path.resolve(__dirname, 'support-bot-playground.html')
 const DEFAULT_INDEX_FILE = 'artifacts/support-bot-local-index.json'
 
@@ -53,8 +65,12 @@ function printUsage() {
       '  --host <host>           Bind host (default: 127.0.0.1)',
       '  --port <port>           Bind port (default: 8787)',
       `  --index-file <path>     Local support index JSON (default: ${DEFAULT_INDEX_FILE})`,
+      `  --provider <provider>   Local provider: openai or ollama (default: SUPPORT_BOT_LOCAL_PROVIDER or ${DEFAULT_LOCAL_PROVIDER})`,
       '  --service-name <name>   Service name returned by /health (default: support-bot-api-local)',
-      '  --help                  Show this help text'
+      '  --help                  Show this help text',
+      '',
+      `Repo-root .env: auto-loaded from ${REPO_ROOT_DOTENV_PATH} when present.`,
+      'Precedence: CLI flags override existing process env; existing process env overrides .env values.'
     ].join('\n')
   )
 }
@@ -64,6 +80,7 @@ function parseArgs(argv) {
     host: '127.0.0.1',
     port: 8787,
     indexFile: DEFAULT_INDEX_FILE,
+    provider: '',
     serviceName: 'support-bot-api-local'
   }
 
@@ -93,6 +110,8 @@ function parseArgs(argv) {
       options.port = parsedPort
     } else if (token === '--index-file') {
       options.indexFile = value
+    } else if (token === '--provider') {
+      options.provider = value
     } else if (token === '--service-name') {
       options.serviceName = value
     } else {
@@ -135,11 +154,20 @@ function loadLocalIndexSnapshot(indexFile) {
     throw new Error(`Invalid local support index at ${absolutePath}. Rebuild it with run-support-bot-sync.js --index-output.`)
   }
 
+  const chunkEmbeddingDimensions = inferSnapshotEmbeddingDimensions(snapshot.chunks)
+
+  if (Number.isInteger(snapshot.embeddingDimensions) && snapshot.embeddingDimensions !== chunkEmbeddingDimensions) {
+    throw new Error(
+      `Local support index at ${absolutePath} declares ${snapshot.embeddingDimensions} embedding dimensions, but chunk vectors are ${chunkEmbeddingDimensions}-dimensional.`
+    )
+  }
+
   return {
     absolutePath,
     generatedAt: typeof snapshot.generatedAt === 'string' ? snapshot.generatedAt : undefined,
+    embeddingProvider: snapshot.embeddingProvider === 'ollama' ? 'ollama' : 'openai',
     embeddingModel: typeof snapshot.embeddingModel === 'string' ? snapshot.embeddingModel : undefined,
-    embeddingDimensions: Number.isInteger(snapshot.embeddingDimensions) ? snapshot.embeddingDimensions : undefined,
+    embeddingDimensions: Number.isInteger(snapshot.embeddingDimensions) ? snapshot.embeddingDimensions : chunkEmbeddingDimensions,
     documentsById: snapshot.documentsById && typeof snapshot.documentsById === 'object' ? snapshot.documentsById : {},
     chunks: snapshot.chunks.map((chunk, index) => ({
       ...chunk,
@@ -148,18 +176,78 @@ function loadLocalIndexSnapshot(indexFile) {
   }
 }
 
-function createRetriever({ supportIndexer, supportRetrieval, snapshot }) {
-  const index = new supportRetrieval.HybridIndex()
-  const queryEmbedder = new supportIndexer.OpenAIEmbeddingProvider({
-    model: snapshot.embeddingModel,
-    dimensions: snapshot.embeddingDimensions
+function inferSnapshotEmbeddingDimensions(chunks) {
+  const dimensions = [...new Set(chunks.map((chunk) => (Array.isArray(chunk.embedding) ? chunk.embedding.length : 0)))]
+
+  if (dimensions.length !== 1 || dimensions[0] <= 0) {
+    throw new Error('Local support index contains invalid or mixed embedding vector dimensions. Rebuild the index snapshot.')
+  }
+
+  return dimensions[0]
+}
+
+function createQueryEmbedder(supportIndexer, provider, snapshot) {
+  if (provider === 'openai') {
+    const config = getOpenAIEmbeddingProviderConfig()
+
+    return new supportIndexer.OpenAIEmbeddingProvider({
+      ...config,
+      model: config.model ?? snapshot.embeddingModel,
+      dimensions: config.dimensions ?? snapshot.embeddingDimensions
+    })
+  }
+
+  const config = getOllamaEmbeddingProviderConfig()
+
+  return new supportIndexer.OllamaEmbeddingProvider({
+    ...config,
+    model: config.model ?? snapshot.embeddingModel,
+    dimensions: config.dimensions ?? snapshot.embeddingDimensions
   })
+}
+
+function assertSnapshotCompatibility(snapshot, provider, queryEmbedder) {
+  if (snapshot.embeddingProvider !== provider) {
+    throw new Error(
+      `Local support index was built with ${snapshot.embeddingProvider} embeddings, but the launcher is using ${provider}. Rebuild the index or select the matching provider.`
+    )
+  }
+
+  if (snapshot.embeddingModel && queryEmbedder.modelName !== snapshot.embeddingModel) {
+    throw new Error(
+      `Local support index was built with embedding model ${snapshot.embeddingModel}, but the launcher is configured for ${queryEmbedder.modelName}. Rebuild the index or align the embedding model.`
+    )
+  }
+
+  if (snapshot.embeddingDimensions && queryEmbedder.dimensions && queryEmbedder.dimensions !== snapshot.embeddingDimensions) {
+    throw new Error(
+      `Local support index was built with ${snapshot.embeddingDimensions}-dimensional embeddings, but the launcher is configured for ${queryEmbedder.dimensions}-dimensional query embeddings.`
+    )
+  }
+}
+
+function assertQueryEmbeddingDimensions(snapshot, queryEmbedding) {
+  if (snapshot.embeddingDimensions && queryEmbedding.length !== snapshot.embeddingDimensions) {
+    throw new Error(
+      `Query embedding returned ${queryEmbedding.length} dimensions, but the local support index expects ${snapshot.embeddingDimensions}. Rebuild the index or align the embedding model.`
+    )
+  }
+}
+
+function createRetriever({ supportIndexer, supportRetrieval, snapshot, provider }) {
+  const index = new supportRetrieval.HybridIndex()
+  const queryEmbedder = createQueryEmbedder(supportIndexer, provider, snapshot)
+
+  assertSnapshotCompatibility(snapshot, provider, queryEmbedder)
 
   index.add(snapshot.chunks)
 
   return {
     retrieve: async ({ query, route }) => {
       const [queryEmbedding] = await queryEmbedder.embed([query])
+
+      assertQueryEmbeddingDimensions(snapshot, queryEmbedding)
+
       const searchResults = index.search(query, queryEmbedding, route.search)
       const evidence = supportRetrieval.packEvidence(searchResults, {
         ...(route.evidence ?? {}),
@@ -179,27 +267,37 @@ function createRetriever({ supportIndexer, supportRetrieval, snapshot }) {
   }
 }
 
-function createDependencies(options, packages) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is required for real local support-bot retrieval and answer generation.')
+function createAnswerGenerator(supportBotApi, provider) {
+  if (provider === 'openai') {
+    return new supportBotApi.OpenAIAnswerGenerationAdapter(getOpenAIAnswerGenerationConfig())
   }
 
+  return new supportBotApi.OllamaAnswerGenerationAdapter(getOllamaAnswerGenerationConfig())
+}
+
+function createDependencies(options, packages) {
+  const provider = resolveLocalProvider(options.provider)
+
+  requireOpenAIApiKey(provider, 'for real local support-bot retrieval and answer generation')
+
   const snapshot = loadLocalIndexSnapshot(options.indexFile)
-  const answerGenerator = new packages.supportBotApi.OpenAIAnswerGenerationAdapter()
+  const answerGenerator = createAnswerGenerator(packages.supportBotApi, provider)
 
   return {
     retriever: createRetriever({
       supportIndexer: packages.supportIndexer,
       supportRetrieval: packages.supportRetrieval,
-      snapshot
+      snapshot,
+      provider
     }),
     answerGenerator,
+    localProvider: provider,
     serviceName: options.serviceName,
     modelVersion: () => {
-      const parts = [answerGenerator.modelName]
+      const parts = [`${provider}:${answerGenerator.modelName}`]
 
       if (snapshot.embeddingModel) {
-        parts.push(`retrieval:${snapshot.embeddingModel}`)
+        parts.push(`retrieval:${snapshot.embeddingProvider}:${snapshot.embeddingModel}:${snapshot.embeddingDimensions}`)
       }
 
       return parts.join(' | ')
@@ -249,6 +347,7 @@ function createLauncherServer(supportBotApi, dependencies) {
 }
 
 async function main() {
+  const dotenvResult = loadRepoRootDotEnv()
   const options = parseArgs(process.argv.slice(2))
 
   if (options.help) {
@@ -271,7 +370,12 @@ async function main() {
   })
 
   console.log(`Local support-bot API listening at ${baseUrl}`)
-  console.log('This launcher uses a persisted local retrieval index plus live OpenAI answer generation.')
+  console.log(
+    `Repo-root .env: ${dotenvResult.exists ? dotenvResult.path : `not found at ${dotenvResult.path}`} (applied ${dotenvResult.loadedKeys.length} missing value${dotenvResult.loadedKeys.length === 1 ? '' : 's'})`
+  )
+  console.log(
+    `This launcher uses a persisted local retrieval index plus live ${dependencies.localProvider} answer generation and ${dependencies.localProvider} query embeddings.`
+  )
   console.log(`Local index: ${dependencies.localIndexPath}`)
 
   if (dependencies.localIndexGeneratedAt) {

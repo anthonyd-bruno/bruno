@@ -58,6 +58,7 @@
   },
   "scripts": {
     "setup": "node ./scripts/setup.js",
+    "support-bot:local": "node ./scripts/support-bot/start-local-support-bot.js",
     "watch:converters": "npm run watch --workspace=packages/bruno-converters",
     "dev": "node ./scripts/dev.js",
     "watch": "npm run dev:watch",

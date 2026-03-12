@@ -3,6 +3,16 @@
 const fs = require('fs')
 const path = require('path')
 
+const {
+  DEFAULT_LOCAL_PROVIDER,
+  REPO_ROOT_DOTENV_PATH,
+  getOllamaEmbeddingProviderConfig,
+  loadRepoRootDotEnv,
+  getOpenAIEmbeddingProviderConfig,
+  requireOpenAIApiKey,
+  resolveLocalProvider
+} = require('./local-provider-config')
+
 function loadSupportIndexerPackage() {
   try {
     return require(path.resolve(__dirname, '../../packages/bruno-support-indexer/dist/cjs/index.js'))
@@ -26,8 +36,12 @@ function printUsage() {
       '  --state-file <path>     Optional sync state JSON path (default: artifacts/support-bot-sync-state.json)',
       '  --schedule-file <path>  Optional JSON file with schedule overrides',
       '  --schedule-json <json>  Optional inline JSON schedule overrides',
+      `  --provider <provider>   Local index provider: openai or ollama (default: SUPPORT_BOT_LOCAL_PROVIDER or ${DEFAULT_LOCAL_PROVIDER})`,
       '  --repo-root <path>      Repo root used by repo ingester (default: current working directory)',
-      '  --help                  Show this help text'
+      '  --help                  Show this help text',
+      '',
+      `Repo-root .env: auto-loaded from ${REPO_ROOT_DOTENV_PATH} when present.`,
+      'Precedence: CLI flags override existing process env; existing process env overrides .env values.'
     ].join('\n')
   )
 }
@@ -39,6 +53,7 @@ function parseArgs(argv) {
     stateFile: 'artifacts/support-bot-sync-state.json',
     scheduleFile: '',
     scheduleJson: '',
+    provider: '',
     repoRoot: process.cwd()
   }
 
@@ -66,6 +81,8 @@ function parseArgs(argv) {
       options.scheduleFile = value
     } else if (token === '--schedule-json') {
       options.scheduleJson = value
+    } else if (token === '--provider') {
+      options.provider = value
     } else if (token === '--repo-root') {
       options.repoRoot = value
     } else {
@@ -76,27 +93,6 @@ function parseArgs(argv) {
   }
 
   return options
-}
-
-function parseOptionalInteger(value, label) {
-  if (!value) {
-    return undefined
-  }
-
-  const parsed = Number.parseInt(value, 10)
-
-  if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new Error(`Invalid ${label} value: ${value}`)
-  }
-
-  return parsed
-}
-
-function getEmbeddingProviderConfig() {
-  return {
-    model: process.env.SUPPORT_BOT_OPENAI_EMBEDDING_MODEL || undefined,
-    dimensions: parseOptionalInteger(process.env.SUPPORT_BOT_OPENAI_EMBEDDING_DIMENSIONS, 'SUPPORT_BOT_OPENAI_EMBEDDING_DIMENSIONS')
-  }
 }
 
 async function collectDocumentsForLocalIndex(supportIndexer, repoRoot) {
@@ -135,10 +131,17 @@ function toIndexedChunk(chunk, document) {
   }
 }
 
-async function buildLocalIndexSnapshot(supportIndexer, repoRoot) {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is required to build a local support retrieval index.')
+function createEmbeddingProvider(supportIndexer, provider) {
+  if (provider === 'openai') {
+    requireOpenAIApiKey(provider, 'to build a local support retrieval index')
+
+    return new supportIndexer.OpenAIEmbeddingProvider(getOpenAIEmbeddingProviderConfig())
   }
+
+  return new supportIndexer.OllamaEmbeddingProvider(getOllamaEmbeddingProviderConfig())
+}
+
+async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider) {
 
   const { documents, sourceGroups } = await collectDocumentsForLocalIndex(supportIndexer, repoRoot)
   const chunker = new supportIndexer.DocumentChunker()
@@ -153,7 +156,7 @@ async function buildLocalIndexSnapshot(supportIndexer, repoRoot) {
 
     return toIndexedChunk(chunk, document)
   })
-  const embeddingProvider = new supportIndexer.OpenAIEmbeddingProvider(getEmbeddingProviderConfig())
+  const embeddingProvider = createEmbeddingProvider(supportIndexer, provider)
   const pipeline = new supportIndexer.EmbeddingPipeline({ provider: embeddingProvider })
   const embeddedChunks = await pipeline.embed(indexedChunks)
 
@@ -166,6 +169,7 @@ async function buildLocalIndexSnapshot(supportIndexer, repoRoot) {
     generatedAt: new Date().toISOString(),
     sourceDocumentCount: documents.length,
     chunkCount: embeddedChunks.length,
+    embeddingProvider: provider,
     embeddingModel: embeddingProvider.modelName,
     embeddingDimensions: embeddingProvider.dimensions,
     sourceGroups,
@@ -217,6 +221,7 @@ function appendGithubStepSummary(markdown) {
 }
 
 async function main() {
+  const dotenvResult = loadRepoRootDotEnv()
   const options = parseArgs(process.argv.slice(2))
 
   if (options.help) {
@@ -250,13 +255,20 @@ async function main() {
   })
   const markdown = supportIndexer.renderSupportSyncRunMarkdown(report)
 
+  console.log(
+    `Repo-root .env: ${dotenvResult.exists ? dotenvResult.path : `not found at ${dotenvResult.path}`} (applied ${dotenvResult.loadedKeys.length} missing value${dotenvResult.loadedKeys.length === 1 ? '' : 's'})`
+  )
   console.log(markdown)
   appendGithubStepSummary(markdown)
   writeJsonFile(options.output, report, 'support sync report')
   writeJsonFile(options.stateFile, report.state, 'support sync state')
 
   if (options.indexOutput) {
-    const snapshot = await buildLocalIndexSnapshot(supportIndexer, path.resolve(process.cwd(), options.repoRoot))
+    const snapshot = await buildLocalIndexSnapshot(
+      supportIndexer,
+      path.resolve(process.cwd(), options.repoRoot),
+      resolveLocalProvider(options.provider)
+    )
 
     writeJsonFile(options.indexOutput, snapshot, 'support-bot local index')
   }

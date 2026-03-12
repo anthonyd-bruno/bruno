@@ -3,6 +3,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, jest } from '@je
 import { type Chunk } from '../../types/chunk';
 import { EmbeddingPipeline } from '../embedder';
 import { type EmbeddingProvider } from '../providers';
+import { OllamaEmbeddingProvider } from '../providers/ollama';
 import { OpenAIEmbeddingProvider } from '../providers/openai';
 
 const originalFetch = global.fetch;
@@ -200,5 +201,87 @@ describe('OpenAIEmbeddingProvider', () => {
 
     expect(fetchMock.mock.calls[0][1]?.headers).toMatchObject({ Authorization: 'Bearer config-key' });
     expect(fetchMock.mock.calls[1][1]?.headers).toMatchObject({ Authorization: 'Bearer env-key' });
+  });
+});
+
+describe('OllamaEmbeddingProvider', () => {
+  beforeEach(() => {
+    global.fetch = jest.fn() as unknown as typeof fetch;
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  afterAll(() => {
+    global.fetch = originalFetch;
+  });
+
+  it('constructs the expected Ollama embeddings request', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({
+        data: [
+          { index: 0, embedding: [0.1, 0.2] },
+          { index: 1, embedding: [0.3, 0.4] }
+        ]
+      })
+    );
+
+    const provider = new OllamaEmbeddingProvider({
+      endpoint: 'http://127.0.0.1:11434/v1/embeddings',
+      model: 'mxbai-embed-large',
+      dimensions: 2
+    });
+
+    await provider.embed(['alpha', 'beta']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toBe('http://127.0.0.1:11434/v1/embeddings');
+    expect(fetchMock.mock.calls[0][1]).toMatchObject({
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    expect(JSON.parse(fetchMock.mock.calls[0][1]?.body as string)).toEqual({
+      model: 'mxbai-embed-large',
+      input: ['alpha', 'beta'],
+      dimensions: 2
+    });
+    expect(provider.dimensions).toBe(2);
+  });
+
+  it('resolves dimensions from the Ollama response when not configured', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({
+        data: [{ index: 0, embedding: [1, 2, 3] }]
+      })
+    );
+
+    const provider = new OllamaEmbeddingProvider({ model: 'nomic-embed-text' });
+    const embeddings = await provider.embed(['alpha']);
+
+    expect(embeddings).toEqual([[1, 2, 3]]);
+    expect(provider.dimensions).toBe(3);
+  });
+
+  it('fails when Ollama returns unexpected embedding dimensions', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce(
+      createJsonResponse({
+        data: [{ index: 0, embedding: [1, 2, 3] }]
+      })
+    );
+
+    const provider = new OllamaEmbeddingProvider({ dimensions: 2 });
+
+    await expect(provider.embed(['alpha'])).rejects.toThrow(
+      'Ollama embeddings returned 3 dimensions but 2 were configured.'
+    );
   });
 });

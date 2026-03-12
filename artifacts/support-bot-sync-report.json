@@ -1,8 +1,8 @@
 {
   "version": 1,
   "status": "failed",
-  "startedAt": "2026-03-10T17:47:42.851Z",
-  "completedAt": "2026-03-10T17:48:18.334Z",
+  "startedAt": "2026-03-12T13:32:13.509Z",
+  "completedAt": "2026-03-12T13:32:47.092Z",
   "schedule": {
     "sourceGroups": [
       {
@@ -43,10 +43,10 @@
   },
   "totals": {
     "executedGroupCount": 5,
-    "successfulGroupCount": 2,
-    "failedGroupCount": 3,
+    "successfulGroupCount": 3,
+    "failedGroupCount": 2,
     "skippedGroupCount": 0,
-    "documentCount": 118
+    "documentCount": 206
   },
   "sourceGroups": [
     {
@@ -59,15 +59,16 @@
         {
           "attempt": 1,
           "status": "succeeded",
-          "startedAt": "2026-03-10T17:47:42.851Z",
-          "completedAt": "2026-03-10T17:47:46.710Z",
-          "durationMs": 3859,
+          "startedAt": "2026-03-12T13:32:13.509Z",
+          "completedAt": "2026-03-12T13:32:17.790Z",
+          "durationMs": 4281,
           "documentCount": 115
         }
       ],
       "documentCount": 115,
-      "lastSuccessfulAtAfterRun": "2026-03-10T17:47:46.710Z",
-      "nextDueAt": "2026-03-11T17:47:46.710Z"
+      "lastSuccessfulAtBeforeRun": "2026-03-10T17:47:46.710Z",
+      "lastSuccessfulAtAfterRun": "2026-03-12T13:32:17.790Z",
+      "nextDueAt": "2026-03-13T13:32:17.790Z"
     },
     {
       "id": "docs",
@@ -79,27 +80,27 @@
         {
           "attempt": 1,
           "status": "failed",
-          "startedAt": "2026-03-10T17:47:46.711Z",
-          "completedAt": "2026-03-10T17:47:55.778Z",
-          "durationMs": 9067,
+          "startedAt": "2026-03-12T13:32:17.791Z",
+          "completedAt": "2026-03-12T13:32:26.287Z",
+          "durationMs": 8496,
           "documentCount": 0,
           "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
         },
         {
           "attempt": 2,
           "status": "failed",
-          "startedAt": "2026-03-10T17:47:56.029Z",
-          "completedAt": "2026-03-10T17:48:04.322Z",
-          "durationMs": 8293,
+          "startedAt": "2026-03-12T13:32:26.538Z",
+          "completedAt": "2026-03-12T13:32:34.842Z",
+          "durationMs": 8304,
           "documentCount": 0,
           "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
         },
         {
           "attempt": 3,
           "status": "failed",
-          "startedAt": "2026-03-10T17:48:04.822Z",
-          "completedAt": "2026-03-10T17:48:13.696Z",
-          "durationMs": 8874,
+          "startedAt": "2026-03-12T13:32:35.343Z",
+          "completedAt": "2026-03-12T13:32:43.578Z",
+          "durationMs": 8235,
           "documentCount": 0,
           "error": "Docs site request failed with status 404 for https://docs.usebruno.com/git-integration/provider"
         }
@@ -116,15 +117,16 @@
         {
           "attempt": 1,
           "status": "succeeded",
-          "startedAt": "2026-03-10T17:48:13.696Z",
-          "completedAt": "2026-03-10T17:48:14.095Z",
-          "durationMs": 399,
+          "startedAt": "2026-03-12T13:32:43.578Z",
+          "completedAt": "2026-03-12T13:32:43.981Z",
+          "durationMs": 403,
           "documentCount": 3
         }
       ],
       "documentCount": 3,
-      "lastSuccessfulAtAfterRun": "2026-03-10T17:48:14.095Z",
-      "nextDueAt": "2026-03-10T21:48:14.095Z"
+      "lastSuccessfulAtBeforeRun": "2026-03-10T17:48:14.095Z",
+      "lastSuccessfulAtAfterRun": "2026-03-12T13:32:43.981Z",
+      "nextDueAt": "2026-03-12T17:32:43.981Z"
     },
     {
       "id": "website_daily",
@@ -136,27 +138,27 @@
         {
           "attempt": 1,
           "status": "failed",
-          "startedAt": "2026-03-10T17:48:14.095Z",
-          "completedAt": "2026-03-10T17:48:14.306Z",
-          "durationMs": 211,
+          "startedAt": "2026-03-12T13:32:43.981Z",
+          "completedAt": "2026-03-12T13:32:44.190Z",
+          "durationMs": 209,
           "documentCount": 0,
           "error": "Website request failed with status 404 for https://www.usebruno.com/about"
         },
         {
           "attempt": 2,
           "status": "failed",
-          "startedAt": "2026-03-10T17:48:14.557Z",
-          "completedAt": "2026-03-10T17:48:14.670Z",
-          "durationMs": 113,
+          "startedAt": "2026-03-12T13:32:44.440Z",
+          "completedAt": "2026-03-12T13:32:44.551Z",
+          "durationMs": 111,
           "documentCount": 0,
           "error": "Website request failed with status 404 for https://www.usebruno.com/about"
         },
         {
           "attempt": 3,
           "status": "failed",
-          "startedAt": "2026-03-10T17:48:15.171Z",
-          "completedAt": "2026-03-10T17:48:15.282Z",
-          "durationMs": 111,
+          "startedAt": "2026-03-12T13:32:45.052Z",
+          "completedAt": "2026-03-12T13:32:45.161Z",
+          "durationMs": 109,
           "documentCount": 0,
           "error": "Website request failed with status 404 for https://www.usebruno.com/about"
         }
@@ -168,46 +170,28 @@
       "label": "GitHub releases/issues/discussions",
       "cadenceHours": 24,
       "staleAfterHours": 36,
-      "status": "failed",
+      "status": "succeeded",
       "attempts": [
         {
           "attempt": 1,
-          "status": "failed",
-          "startedAt": "2026-03-10T17:48:15.282Z",
-          "completedAt": "2026-03-10T17:48:16.984Z",
-          "durationMs": 1702,
-          "documentCount": 0,
-          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/issues/1033/comments?per_page=10"
-        },
-        {
-          "attempt": 2,
-          "status": "failed",
-          "startedAt": "2026-03-10T17:48:17.236Z",
-          "completedAt": "2026-03-10T17:48:17.534Z",
-          "durationMs": 298,
-          "documentCount": 0,
-          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/issues?state=closed&sort=comments&direction=desc&per_page=100"
-        },
-        {
-          "attempt": 3,
-          "status": "failed",
-          "startedAt": "2026-03-10T17:48:18.035Z",
-          "completedAt": "2026-03-10T17:48:18.334Z",
-          "durationMs": 299,
-          "documentCount": 0,
-          "error": "GitHub API request failed with status 403 for https://api.github.com/repos/usebruno/bruno/releases?per_page=50"
+          "status": "succeeded",
+          "startedAt": "2026-03-12T13:32:45.161Z",
+          "completedAt": "2026-03-12T13:32:47.092Z",
+          "durationMs": 1931,
+          "documentCount": 88
         }
       ],
-      "documentCount": 0
+      "documentCount": 88,
+      "lastSuccessfulAtAfterRun": "2026-03-12T13:32:47.092Z",
+      "nextDueAt": "2026-03-13T13:32:47.092Z"
     }
   ],
   "staleReport": {
-    "checkedAt": "2026-03-10T17:48:18.334Z",
+    "checkedAt": "2026-03-12T13:32:47.092Z",
     "status": "stale",
     "staleGroupIds": [
       "docs",
-      "website_daily",
-      "github"
+      "website_daily"
     ],
     "groups": [
       {
@@ -216,7 +200,7 @@
         "cadenceHours": 24,
         "staleAfterHours": 36,
         "status": "fresh",
-        "lastSuccessfulAt": "2026-03-10T17:47:46.710Z",
+        "lastSuccessfulAt": "2026-03-12T13:32:17.790Z",
         "ageHours": 0.01
       },
       {
@@ -232,7 +216,7 @@
         "cadenceHours": 4,
         "staleAfterHours": 8,
         "status": "fresh",
-        "lastSuccessfulAt": "2026-03-10T17:48:14.095Z",
+        "lastSuccessfulAt": "2026-03-12T13:32:43.981Z",
         "ageHours": 0
       },
       {
@@ -247,16 +231,19 @@
         "label": "GitHub releases/issues/discussions",
         "cadenceHours": 24,
         "staleAfterHours": 36,
-        "status": "never_synced"
+        "status": "fresh",
+        "lastSuccessfulAt": "2026-03-12T13:32:47.092Z",
+        "ageHours": 0
       }
     ]
   },
   "state": {
     "version": 1,
+    "updatedAt": "2026-03-12T13:32:47.092Z",
     "lastSuccessfulRunByGroup": {
-      "repo": "2026-03-10T17:47:46.710Z",
-      "website_high_churn": "2026-03-10T17:48:14.095Z"
-    },
-    "updatedAt": "2026-03-10T17:48:18.334Z"
+      "repo": "2026-03-12T13:32:17.790Z",
+      "website_high_churn": "2026-03-12T13:32:43.981Z",
+      "github": "2026-03-12T13:32:47.092Z"
+    }
   }
 }

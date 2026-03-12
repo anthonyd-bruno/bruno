@@ -458,6 +458,25 @@ declare class OpenAIEmbeddingProvider implements EmbeddingProvider {
     private delay;
 }
 
+interface OllamaEmbeddingProviderConfig {
+    endpoint?: string;
+    model?: string;
+    dimensions?: number;
+    fetchImpl?: typeof fetch;
+}
+declare class OllamaEmbeddingProvider implements EmbeddingProvider {
+    readonly modelName: string;
+    private readonly endpoint;
+    private readonly configuredDimensions?;
+    private readonly fetchImpl;
+    private resolvedDimensions?;
+    constructor(config?: OllamaEmbeddingProviderConfig);
+    get dimensions(): number;
+    embed(texts: string[]): Promise<number[][]>;
+    private fetchEmbeddings;
+    private assertEmbeddingDimensions;
+}
+
 type EmbeddedChunk = Chunk & {
     embedding: number[];
 };
@@ -585,4 +604,4 @@ declare function createDefaultSupportSyncHandlers(repoRoot: string): SupportSync
 declare function runScheduledSupportSync(input: RunScheduledSupportSyncInput): Promise<SupportSyncRunOutput>;
 declare function renderSupportSyncRunMarkdown(output: SupportSyncRunOutput): string;
 
-export { Answer, Chunk, Citation, DEFAULT_SUPPORT_SYNC_RETRY_POLICY, DEFAULT_SUPPORT_SYNC_SCHEDULE_CONFIG, DocsSiteIngester, DocsSiteIngesterConfig, DocumentChunker, DocumentChunkerConfig, EmbeddedChunk, EmbeddingPipeline, EmbeddingPipelineConfig, EmbeddingProvider, EvalCase, EvalCaseDifficulty, GitHubIngester, GitHubIngesterConfig, OpenAIEmbeddingProvider, OpenAIEmbeddingProviderConfig, RepoIngester, RepoIngesterConfig, RunScheduledSupportSyncInput, SourceDocument, SourceType, StackOverflowIngester, StackOverflowIngesterConfig, SupportSyncAttemptResult, SupportSyncGroupFreshness, SupportSyncHandler, SupportSyncHandlerMap, SupportSyncRetryPolicy, SupportSyncRunOutput, SupportSyncScheduleConfig, SupportSyncSourceGroupId, SupportSyncSourceGroupRunResult, SupportSyncSourceGroupSchedule, SupportSyncStalenessReport, SupportSyncState, TrustTier, WebsiteIngester, WebsiteIngesterConfig, answerSchema, chunkSchema, citationSchema, createDefaultSupportSyncHandlers, evalCaseDifficulties, evalCaseSchema, evaluateSupportSyncStaleness, getSupportSyncNextDueAt, getSupportSyncSourceGroupSchedule, isSupportSyncSourceGroupDue, parseSupportSyncScheduleConfig, parseSupportSyncState, recordSupportSyncSuccess, renderSupportSyncRunMarkdown, runScheduledSupportSync, safeValidate, sourceDocumentSchema, sourceTypeSchema, sourceTypes, supportSyncSourceGroupIds, trustTierSchema, validateAnswer, validateChunk, validateCitation, validateEvalCase, validateSourceDocument };
+export { Answer, Chunk, Citation, DEFAULT_SUPPORT_SYNC_RETRY_POLICY, DEFAULT_SUPPORT_SYNC_SCHEDULE_CONFIG, DocsSiteIngester, DocsSiteIngesterConfig, DocumentChunker, DocumentChunkerConfig, EmbeddedChunk, EmbeddingPipeline, EmbeddingPipelineConfig, EmbeddingProvider, EvalCase, EvalCaseDifficulty, GitHubIngester, GitHubIngesterConfig, OllamaEmbeddingProvider, OllamaEmbeddingProviderConfig, OpenAIEmbeddingProvider, OpenAIEmbeddingProviderConfig, RepoIngester, RepoIngesterConfig, RunScheduledSupportSyncInput, SourceDocument, SourceType, StackOverflowIngester, StackOverflowIngesterConfig, SupportSyncAttemptResult, SupportSyncGroupFreshness, SupportSyncHandler, SupportSyncHandlerMap, SupportSyncRetryPolicy, SupportSyncRunOutput, SupportSyncScheduleConfig, SupportSyncSourceGroupId, SupportSyncSourceGroupRunResult, SupportSyncSourceGroupSchedule, SupportSyncStalenessReport, SupportSyncState, TrustTier, WebsiteIngester, WebsiteIngesterConfig, answerSchema, chunkSchema, citationSchema, createDefaultSupportSyncHandlers, evalCaseDifficulties, evalCaseSchema, evaluateSupportSyncStaleness, getSupportSyncNextDueAt, getSupportSyncSourceGroupSchedule, isSupportSyncSourceGroupDue, parseSupportSyncScheduleConfig, parseSupportSyncState, recordSupportSyncSuccess, renderSupportSyncRunMarkdown, runScheduledSupportSync, safeValidate, sourceDocumentSchema, sourceTypeSchema, sourceTypes, supportSyncSourceGroupIds, trustTierSchema, validateAnswer, validateChunk, validateCitation, validateEvalCase, validateSourceDocument };

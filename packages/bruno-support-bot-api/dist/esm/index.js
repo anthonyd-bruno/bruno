@@ -54,10 +54,6 @@ function assessEvidenceStrength(result, policy = DEFAULT_GROUNDED_PROMPT_POLICY)
     };
 }
 
-const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
-const DEFAULT_MODEL = 'gpt-4.1-mini';
-const DEFAULT_TEMPERATURE = 0.2;
-const DEFAULT_MAX_COMPLETION_TOKENS = 400;
 function buildJsonInstructionMessage() {
     return {
         role: 'system',
@@ -69,6 +65,53 @@ function buildJsonInstructionMessage() {
         ].join(' ')
     };
 }
+function toStringList(value) {
+    if (!Array.isArray(value)) {
+        return undefined;
+    }
+    const items = value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
+    return items.length > 0 ? items : undefined;
+}
+function toPositiveIntegerList(value) {
+    if (!Array.isArray(value)) {
+        return undefined;
+    }
+    const items = value
+        .map((item) => (Number.isInteger(item) && item > 0 ? item : undefined))
+        .filter((item) => item !== undefined);
+    return items.length > 0 ? items : undefined;
+}
+function parseAnswerGenerationDraft(content, providerLabel) {
+    let value;
+    try {
+        value = JSON.parse(content);
+    }
+    catch (error) {
+        throw new Error(`${providerLabel} answer generation returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    if (!value || typeof value !== 'object') {
+        throw new Error(`${providerLabel} answer generation returned a non-object JSON payload.`);
+    }
+    const draft = value;
+    if (typeof draft.shortAnswer !== 'string' || draft.shortAnswer.trim().length === 0) {
+        throw new Error(`${providerLabel} answer generation payload must include a non-empty shortAnswer string.`);
+    }
+    return {
+        shortAnswer: draft.shortAnswer.trim(),
+        steps: toStringList(draft.steps),
+        commands: toStringList(draft.commands),
+        citedEvidenceIndexes: toPositiveIntegerList(draft.citedEvidenceIndexes),
+        confidence: typeof draft.confidence === 'number' && draft.confidence >= 0 && draft.confidence <= 1
+            ? draft.confidence
+            : undefined,
+        uncertainty: typeof draft.uncertainty === 'string' && draft.uncertainty.trim().length > 0 ? draft.uncertainty.trim() : undefined
+    };
+}
+
+const OPENAI_CHAT_COMPLETIONS_URL = 'https://api.openai.com/v1/chat/completions';
+const DEFAULT_MODEL$1 = 'gpt-4.1-mini';
+const DEFAULT_TEMPERATURE$1 = 0.2;
+const DEFAULT_MAX_COMPLETION_TOKENS = 400;
 function extractMessageContent(payload) {
     var _a, _b;
     const message = (_b = (_a = payload.choices) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.message;
@@ -92,55 +135,13 @@ function extractMessageContent(payload) {
     }
     throw new Error('OpenAI answer generation returned an empty response body.');
 }
-function toStringList(value) {
-    if (!Array.isArray(value)) {
-        return undefined;
-    }
-    const items = value.map((item) => (typeof item === 'string' ? item.trim() : '')).filter(Boolean);
-    return items.length > 0 ? items : undefined;
-}
-function toPositiveIntegerList(value) {
-    if (!Array.isArray(value)) {
-        return undefined;
-    }
-    const items = value
-        .map((item) => (Number.isInteger(item) && item > 0 ? item : undefined))
-        .filter((item) => item !== undefined);
-    return items.length > 0 ? items : undefined;
-}
-function parseDraft(content) {
-    let value;
-    try {
-        value = JSON.parse(content);
-    }
-    catch (error) {
-        throw new Error(`OpenAI answer generation returned invalid JSON: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    if (!value || typeof value !== 'object') {
-        throw new Error('OpenAI answer generation returned a non-object JSON payload.');
-    }
-    const draft = value;
-    if (typeof draft.shortAnswer !== 'string' || draft.shortAnswer.trim().length === 0) {
-        throw new Error('OpenAI answer generation payload must include a non-empty shortAnswer string.');
-    }
-    return {
-        shortAnswer: draft.shortAnswer.trim(),
-        steps: toStringList(draft.steps),
-        commands: toStringList(draft.commands),
-        citedEvidenceIndexes: toPositiveIntegerList(draft.citedEvidenceIndexes),
-        confidence: typeof draft.confidence === 'number' && draft.confidence >= 0 && draft.confidence <= 1
-            ? draft.confidence
-            : undefined,
-        uncertainty: typeof draft.uncertainty === 'string' && draft.uncertainty.trim().length > 0 ? draft.uncertainty.trim() : undefined
-    };
-}
 class OpenAIAnswerGenerationAdapter {
     constructor(config = {}) {
         var _a, _b, _c, _d, _e, _f, _g;
         this.apiKey = (_a = config.apiKey) !== null && _a !== void 0 ? _a : process.env.OPENAI_API_KEY;
-        this.modelName = (_c = (_b = config.model) !== null && _b !== void 0 ? _b : process.env.SUPPORT_BOT_OPENAI_MODEL) !== null && _c !== void 0 ? _c : DEFAULT_MODEL;
+        this.modelName = (_c = (_b = config.model) !== null && _b !== void 0 ? _b : process.env.SUPPORT_BOT_OPENAI_MODEL) !== null && _c !== void 0 ? _c : DEFAULT_MODEL$1;
         this.endpoint = (_d = config.endpoint) !== null && _d !== void 0 ? _d : OPENAI_CHAT_COMPLETIONS_URL;
-        this.temperature = (_e = config.temperature) !== null && _e !== void 0 ? _e : DEFAULT_TEMPERATURE;
+        this.temperature = (_e = config.temperature) !== null && _e !== void 0 ? _e : DEFAULT_TEMPERATURE$1;
         this.maxCompletionTokens = (_f = config.maxCompletionTokens) !== null && _f !== void 0 ? _f : DEFAULT_MAX_COMPLETION_TOKENS;
         this.fetchImpl = (_g = config.fetchImpl) !== null && _g !== void 0 ? _g : fetch;
     }
@@ -166,7 +167,50 @@ class OpenAIAnswerGenerationAdapter {
             const detail = (await response.text()).trim();
             throw new Error(`OpenAI answer generation request failed with status ${response.status}${detail ? `: ${detail}` : ''}`);
         }
-        return parseDraft(extractMessageContent((await response.json())));
+        return parseAnswerGenerationDraft(extractMessageContent((await response.json())), 'OpenAI');
+    }
+}
+
+const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/api/chat';
+const DEFAULT_MODEL = 'llama3.2';
+const DEFAULT_TEMPERATURE = 0.2;
+const DEFAULT_MAX_TOKENS = 400;
+class OllamaAnswerGenerationAdapter {
+    constructor(config = {}) {
+        var _a, _b, _c, _d, _e;
+        this.endpoint = (_a = config.endpoint) !== null && _a !== void 0 ? _a : DEFAULT_ENDPOINT;
+        this.modelName = (_b = config.model) !== null && _b !== void 0 ? _b : DEFAULT_MODEL;
+        this.temperature = (_c = config.temperature) !== null && _c !== void 0 ? _c : DEFAULT_TEMPERATURE;
+        this.maxTokens = (_d = config.maxTokens) !== null && _d !== void 0 ? _d : DEFAULT_MAX_TOKENS;
+        this.fetchImpl = (_e = config.fetchImpl) !== null && _e !== void 0 ? _e : fetch;
+    }
+    async generate(request) {
+        var _a;
+        const response = await this.fetchImpl(this.endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: this.modelName,
+                stream: false,
+                format: 'json',
+                options: {
+                    temperature: this.temperature,
+                    num_predict: this.maxTokens
+                },
+                messages: [buildJsonInstructionMessage(), ...request.messages]
+            })
+        });
+        if (!response.ok) {
+            const detail = (await response.text()).trim();
+            throw new Error(`Ollama answer generation request failed with status ${response.status}${detail ? `: ${detail}` : ''}`);
+        }
+        const content = (_a = (await response.json()).message) === null || _a === void 0 ? void 0 : _a.content;
+        if (typeof content !== 'string' || content.trim().length === 0) {
+            throw new Error('Ollama answer generation returned an empty response body.');
+        }
+        return parseAnswerGenerationDraft(content, 'Ollama');
     }
 }
 
@@ -14245,6 +14289,7 @@ const supportBotApi = {
     GROUNDED_PROMPT_POLICY_VERSION,
     assessEvidenceStrength,
     OpenAIAnswerGenerationAdapter,
+    OllamaAnswerGenerationAdapter,
     buildAnswerGenerationRequest,
     assembleSupportAnswer,
     classifySafetyAndEscalation,
@@ -14262,5 +14307,5 @@ const supportBotApi = {
     createSupportBotApiServer
 };
 
-export { ApiValidationError, DEFAULT_GROUNDED_PROMPT_POLICY, GROUNDED_PROMPT_POLICY_VERSION, OFFICIAL_BRUNO_DESTINATIONS, OpenAIAnswerGenerationAdapter, answerGenerationDraftSchema, apiErrorCodeSchema, apiErrorResponseSchema, apiSupportAnswerCitationSchema, apiSupportAnswerEscalationSchema, apiSupportAnswerSafetySchema, apiSupportAnswerSchema, apiValidationIssueSchema, assembleSupportAnswer, assessEvidenceStrength, buildAnswerGenerationRequest, buildFallbackMessage, chatRequestSchema, chatResponseSchema, classifySafetyAndEscalation, createSupportBotApiServer, createValidationError, determineSupportBotCitationSignal, emitSupportBotTelemetry, handleChatRequest, handleHealthRequest, handleNodeHttpRequest, handleSourcesRequest, handleSupportBotApiRequest, healthResponseSchema, parseWithSchema, redactSupportBotText, sourcesRequestSchema, sourcesResponseSchema, summarizeSupportBotAssessment, summarizeSupportBotError, summarizeSupportBotEvidence, summarizeSupportBotRoute, summarizeSupportBotText, supportBotApi, supportQueryRouteSummarySchema, toApiSupportAnswer, toSharedAnswer, toSharedCitation, toSupportQueryRouteSummary, validateWithSchema };
+export { ApiValidationError, DEFAULT_GROUNDED_PROMPT_POLICY, GROUNDED_PROMPT_POLICY_VERSION, OFFICIAL_BRUNO_DESTINATIONS, OllamaAnswerGenerationAdapter, OpenAIAnswerGenerationAdapter, answerGenerationDraftSchema, apiErrorCodeSchema, apiErrorResponseSchema, apiSupportAnswerCitationSchema, apiSupportAnswerEscalationSchema, apiSupportAnswerSafetySchema, apiSupportAnswerSchema, apiValidationIssueSchema, assembleSupportAnswer, assessEvidenceStrength, buildAnswerGenerationRequest, buildFallbackMessage, buildJsonInstructionMessage, chatRequestSchema, chatResponseSchema, classifySafetyAndEscalation, createSupportBotApiServer, createValidationError, determineSupportBotCitationSignal, emitSupportBotTelemetry, handleChatRequest, handleHealthRequest, handleNodeHttpRequest, handleSourcesRequest, handleSupportBotApiRequest, healthResponseSchema, parseAnswerGenerationDraft, parseWithSchema, redactSupportBotText, sourcesRequestSchema, sourcesResponseSchema, summarizeSupportBotAssessment, summarizeSupportBotError, summarizeSupportBotEvidence, summarizeSupportBotRoute, summarizeSupportBotText, supportBotApi, supportQueryRouteSummarySchema, toApiSupportAnswer, toSharedAnswer, toSharedCitation, toSupportQueryRouteSummary, validateWithSchema };
 //# sourceMappingURL=index.js.map
