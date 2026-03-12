@@ -274,6 +274,10 @@ export class DocsSiteIngester {
       normalized.pathname = `/get-started${normalized.pathname}`;
     } else if (normalized.pathname.startsWith('/import-export-data/')) {
       normalized.pathname = `/get-started${normalized.pathname}`;
+    } else if (normalized.pathname === '/license-management/overview') {
+      normalized.pathname = '/license-overview';
+    } else if (normalized.pathname.startsWith('/license-management/')) {
+      normalized.pathname = normalized.pathname.replace(/^\/license-management/, '');
     }
 
     return this.normalizeUrl(normalized);
