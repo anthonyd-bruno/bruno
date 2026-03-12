@@ -15,9 +15,10 @@ import {
   type SupportSyncState
 } from './staleness'
 
+const DOCS_EXCLUDED_PATHS = ['/git-integration/provider', '/git-integration/consumer', '/bruno-basics/run-a-collection']
 const WEBSITE_HIGH_CHURN_TARGET_PATHS = ['/changelog', '/downloads', '/pricing']
 const WEBSITE_HOME_TARGET_PATHS = ['/']
-const WEBSITE_DAILY_TARGET_PATHS = ['/support', '/about', '/roadmap', '/terms', '/privacy']
+const WEBSITE_DAILY_TARGET_PATHS = ['/support', '/roadmap', '/terms', '/privacy-policy']
 
 export type SupportSyncHandler = () => Promise<SourceDocument[]>
 
@@ -76,7 +77,7 @@ export interface RunScheduledSupportSyncInput {
 export function createDefaultSupportSyncHandlers(repoRoot: string): SupportSyncHandlerMap {
   return {
     repo: async () => new RepoIngester({ repoRoot }).ingest(),
-    docs: async () => new DocsSiteIngester().ingest(),
+    docs: async () => new DocsSiteIngester({ excludedPaths: DOCS_EXCLUDED_PATHS }).ingest(),
     website_high_churn: async () => new WebsiteIngester({
       targetPaths: WEBSITE_HIGH_CHURN_TARGET_PATHS,
       maxPages: WEBSITE_HIGH_CHURN_TARGET_PATHS.length

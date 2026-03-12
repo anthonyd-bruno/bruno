@@ -33,17 +33,22 @@ export interface DocsSiteIngesterConfig {
   baseUrl?: string;
   maxPages?: number;
   maxDepth?: number;
+  excludedPaths?: string[];
 }
 
 export class DocsSiteIngester {
   private readonly baseUrl: URL;
   private readonly maxPages: number;
   private readonly maxDepth: number;
+  private readonly excludedUrls: Set<string>;
 
   constructor(config: DocsSiteIngesterConfig = {}) {
     this.baseUrl = new URL(config.baseUrl ?? DEFAULT_BASE_URL);
     this.maxPages = config.maxPages ?? DEFAULT_MAX_PAGES;
     this.maxDepth = config.maxDepth ?? DEFAULT_MAX_DEPTH;
+    this.excludedUrls = new Set(
+      (config.excludedPaths ?? []).map((excludedPath) => this.normalizeUrl(new URL(excludedPath, this.baseUrl)))
+    );
   }
 
   async ingest(): Promise<SourceDocument[]> {
@@ -57,7 +62,12 @@ export class DocsSiteIngester {
     while (queue.length > 0 && visitedUrls.size < this.maxPages) {
       const current = queue.shift();
 
-      if (!current || current.depth > this.maxDepth || visitedUrls.has(current.url)) {
+      if (
+        !current ||
+        current.depth > this.maxDepth ||
+        visitedUrls.has(current.url) ||
+        this.excludedUrls.has(current.url)
+      ) {
         continue;
       }
 
@@ -221,7 +231,13 @@ export class DocsSiteIngester {
           return;
         }
 
-        links.add(this.normalizeUrl(candidate));
+        const normalizedCandidate = this.normalizeUrl(candidate);
+
+        if (this.excludedUrls.has(normalizedCandidate)) {
+          return;
+        }
+
+        links.add(normalizedCandidate);
       } catch {
         // Ignore malformed URLs.
       }
