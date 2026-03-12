@@ -5,8 +5,9 @@ const path = require('path')
 
 const {
   DEFAULT_LOCAL_PROVIDER,
-  REPO_ROOT_DOTENV_PATH,
+  formatRepoRootDotEnvResult,
   getOllamaEmbeddingProviderConfig,
+  getRepoRootDotEnvHelpLines,
   loadRepoRootDotEnv,
   getOpenAIEmbeddingProviderConfig,
   requireOpenAIApiKey,
@@ -36,12 +37,14 @@ function printUsage() {
       '  --state-file <path>     Optional sync state JSON path (default: artifacts/support-bot-sync-state.json)',
       '  --schedule-file <path>  Optional JSON file with schedule overrides',
       '  --schedule-json <json>  Optional inline JSON schedule overrides',
+      '  --skip-github          Local-only: exclude GitHub ingest from the sync report and local index build',
       `  --provider <provider>   Local index provider: openai or ollama (default: SUPPORT_BOT_LOCAL_PROVIDER or ${DEFAULT_LOCAL_PROVIDER})`,
       '  --repo-root <path>      Repo root used by repo ingester (default: current working directory)',
       '  --help                  Show this help text',
       '',
-      `Repo-root .env: auto-loaded from ${REPO_ROOT_DOTENV_PATH} when present.`,
-      'Precedence: CLI flags override existing process env; existing process env overrides .env values.'
+      'By default this script remains strict: a failed or stale GitHub sync still exits non-zero unless you explicitly pass --skip-github for local smoke testing.',
+      '',
+      ...getRepoRootDotEnvHelpLines()
     ].join('\n')
   )
 }
@@ -53,6 +56,7 @@ function parseArgs(argv) {
     stateFile: 'artifacts/support-bot-sync-state.json',
     scheduleFile: '',
     scheduleJson: '',
+    skipGithub: false,
     provider: '',
     repoRoot: process.cwd()
   }
@@ -62,6 +66,11 @@ function parseArgs(argv) {
 
     if (token === '--help') {
       options.help = true
+      continue
+    }
+
+    if (token === '--skip-github') {
+      options.skipGithub = true
       continue
     }
 
@@ -95,12 +104,33 @@ function parseArgs(argv) {
   return options
 }
 
-async function collectDocumentsForLocalIndex(supportIndexer, repoRoot) {
+function applyLocalGithubSkipToScheduleOverrides(scheduleOverrides, skipGithub) {
+  if (!skipGithub) {
+    return scheduleOverrides
+  }
+
+  return {
+    ...scheduleOverrides,
+    sourceGroups: {
+      ...(scheduleOverrides.sourceGroups ?? {}),
+      github: {
+        ...(scheduleOverrides.sourceGroups?.github ?? {}),
+        enabled: false
+      }
+    }
+  }
+}
+
+async function collectDocumentsForLocalIndex(supportIndexer, repoRoot, options = {}) {
   const handlers = supportIndexer.createDefaultSupportSyncHandlers(repoRoot)
   const sourceGroups = []
   const documents = []
 
   for (const [groupId, handler] of Object.entries(handlers)) {
+    if (options.skipGithub && groupId === 'github') {
+      continue
+    }
+
     const groupDocuments = await handler()
 
     sourceGroups.push({
@@ -141,9 +171,8 @@ function createEmbeddingProvider(supportIndexer, provider) {
   return new supportIndexer.OllamaEmbeddingProvider(getOllamaEmbeddingProviderConfig())
 }
 
-async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider) {
-
-  const { documents, sourceGroups } = await collectDocumentsForLocalIndex(supportIndexer, repoRoot)
+async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider, options = {}) {
+  const { documents, sourceGroups } = await collectDocumentsForLocalIndex(supportIndexer, repoRoot, options)
   const chunker = new supportIndexer.DocumentChunker()
   const documentsById = new Map(documents.map((document) => [document.id, document]))
   const rawChunks = chunker.chunkMany(documents)
@@ -248,6 +277,8 @@ async function main() {
     }
   }
 
+  scheduleOverrides = applyLocalGithubSkipToScheduleOverrides(scheduleOverrides, options.skipGithub)
+
   const report = await supportIndexer.runScheduledSupportSync({
     repoRoot: path.resolve(process.cwd(), options.repoRoot),
     scheduleConfig: scheduleOverrides,
@@ -255,9 +286,12 @@ async function main() {
   })
   const markdown = supportIndexer.renderSupportSyncRunMarkdown(report)
 
-  console.log(
-    `Repo-root .env: ${dotenvResult.exists ? dotenvResult.path : `not found at ${dotenvResult.path}`} (applied ${dotenvResult.loadedKeys.length} missing value${dotenvResult.loadedKeys.length === 1 ? '' : 's'})`
-  )
+  console.log(formatRepoRootDotEnvResult(dotenvResult))
+
+  if (options.skipGithub) {
+    console.log('Local-only mode: skipping GitHub ingest for this sync run and local index build.')
+  }
+
   console.log(markdown)
   appendGithubStepSummary(markdown)
   writeJsonFile(options.output, report, 'support sync report')
@@ -267,7 +301,8 @@ async function main() {
     const snapshot = await buildLocalIndexSnapshot(
       supportIndexer,
       path.resolve(process.cwd(), options.repoRoot),
-      resolveLocalProvider(options.provider)
+      resolveLocalProvider(options.provider),
+      { skipGithub: options.skipGithub }
     )
 
     writeJsonFile(options.indexOutput, snapshot, 'support-bot local index')
@@ -278,7 +313,15 @@ async function main() {
   }
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+module.exports = {
+  applyLocalGithubSkipToScheduleOverrides,
+  collectDocumentsForLocalIndex,
+  parseArgs
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}

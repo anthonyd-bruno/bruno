@@ -18,11 +18,13 @@ function printUsage() {
       'Usage: node scripts/support-bot/start-local-support-bot.js [options]',
       '',
       'Build the local support-bot packages, refresh the local index, and start the local launcher.',
+      'This local wrapper skips GitHub ingest by default so missing/invalid/rate-limited GitHub auth does not block smoke tests.',
       '',
       'Options:',
       '  --host <host>           Forwarded to run-support-bot-api.js (default: 127.0.0.1)',
       '  --port <port>           Forwarded to run-support-bot-api.js (default: 8787)',
       `  --index-file <path>     Local support index JSON path (default: ${DEFAULT_INDEX_FILE})`,
+      '  --include-github       Include GitHub ingest during the local sync refresh',
       '  --provider <provider>   Forwarded to both sync and launcher (openai or ollama)',
       '  --service-name <name>   Forwarded to run-support-bot-api.js',
       '  --help                  Show this help text',
@@ -31,8 +33,10 @@ function printUsage() {
       '  - npm run build --workspace=packages/bruno-support-indexer',
       '  - npm run build --workspace=packages/bruno-support-retrieval',
       '  - npm run build --workspace=packages/bruno-support-bot-api',
-      '  - node scripts/support-bot/run-support-bot-sync.js --index-output <index-file>',
+      '  - node scripts/support-bot/run-support-bot-sync.js --skip-github --index-output <index-file>',
       '  - node scripts/support-bot/run-support-bot-api.js --index-file <index-file>',
+      '',
+      'Pass --include-github if you want the local wrapper to include GitHub content and you have a working GITHUB_TOKEN.',
       '',
       'Wrapped scripts try repo-root .env first, fall back to repo-root .env.example when .env is missing, let existing process env override loaded file values, and let CLI flags win where supported.'
     ].join('\n')
@@ -44,6 +48,7 @@ function parseArgs(argv) {
     host: '',
     port: '',
     indexFile: DEFAULT_INDEX_FILE,
+    includeGithub: false,
     provider: '',
     serviceName: ''
   }
@@ -53,6 +58,11 @@ function parseArgs(argv) {
 
     if (token === '--help') {
       options.help = true
+      continue
+    }
+
+    if (token === '--include-github') {
+      options.includeGithub = true
       continue
     }
 
@@ -86,6 +96,18 @@ function appendOption(args, flag, value) {
   if (value) {
     args.push(flag, value)
   }
+}
+
+function createSyncArgs(options) {
+  const syncArgs = ['scripts/support-bot/run-support-bot-sync.js', '--index-output', options.indexFile]
+
+  if (!options.includeGithub) {
+    syncArgs.push('--skip-github')
+  }
+
+  appendOption(syncArgs, '--provider', options.provider)
+
+  return syncArgs
 }
 
 function formatCommand(command, args) {
@@ -167,8 +189,7 @@ async function main() {
     await runCommand(NPM_COMMAND, ['run', 'build', `--workspace=${workspace}`], `Build ${workspace}`)
   }
 
-  const syncArgs = ['scripts/support-bot/run-support-bot-sync.js', '--index-output', options.indexFile]
-  appendOption(syncArgs, '--provider', options.provider)
+  const syncArgs = createSyncArgs(options)
 
   await runCommand(process.execPath, syncArgs, 'Refresh local support-bot index')
 
@@ -183,7 +204,14 @@ async function main() {
   })
 }
 
-main().catch((error) => {
-  console.error(error instanceof Error ? error.message : String(error))
-  process.exitCode = 1
-})
+module.exports = {
+  createSyncArgs,
+  parseArgs
+}
+
+if (require.main === module) {
+  main().catch((error) => {
+    console.error(error instanceof Error ? error.message : String(error))
+    process.exitCode = 1
+  })
+}
