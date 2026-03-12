@@ -6,22 +6,24 @@ const parseDotEnv = require(path.resolve(__dirname, '../../packages/bruno-lang/v
 const DEFAULT_LOCAL_PROVIDER = 'openai'
 const DEFAULT_OLLAMA_HOST = 'http://127.0.0.1:11434'
 const REPO_ROOT_DOTENV_PATH = path.resolve(__dirname, '../../.env')
+const REPO_ROOT_DOTENV_EXAMPLE_PATH = path.resolve(__dirname, '../../.env.example')
 
-function loadRepoRootDotEnv(env = process.env) {
+function loadDotEnvFile(filePath, env, fileLabel) {
   let parsedValues
 
   try {
-    parsedValues = parseDotEnv(fs.readFileSync(REPO_ROOT_DOTENV_PATH, 'utf8'))
+    parsedValues = parseDotEnv(fs.readFileSync(filePath, 'utf8'))
   } catch (error) {
     if (error && error.code === 'ENOENT') {
       return {
         exists: false,
         loadedKeys: [],
-        path: REPO_ROOT_DOTENV_PATH
+        path: filePath,
+        source: fileLabel
       }
     }
 
-    throw new Error(`Unable to load repo-root .env from ${REPO_ROOT_DOTENV_PATH}: ${error.message}`)
+    throw new Error(`Unable to load repo-root ${fileLabel} from ${filePath}: ${error.message}`)
   }
 
   const loadedKeys = []
@@ -38,8 +40,57 @@ function loadRepoRootDotEnv(env = process.env) {
   return {
     exists: true,
     loadedKeys,
-    path: REPO_ROOT_DOTENV_PATH
+    path: filePath,
+    source: fileLabel
   }
+}
+
+function loadRepoRootDotEnv(env = process.env) {
+  const dotenvResult = loadDotEnvFile(REPO_ROOT_DOTENV_PATH, env, '.env')
+
+  if (dotenvResult.exists) {
+    return {
+      ...dotenvResult,
+      usedFallback: false
+    }
+  }
+
+  const dotenvExampleResult = loadDotEnvFile(REPO_ROOT_DOTENV_EXAMPLE_PATH, env, '.env.example')
+
+  if (dotenvExampleResult.exists) {
+    return {
+      ...dotenvExampleResult,
+      usedFallback: true
+    }
+  }
+
+  return {
+    exists: false,
+    loadedKeys: [],
+    path: REPO_ROOT_DOTENV_PATH,
+    source: '',
+    usedFallback: false
+  }
+}
+
+function formatRepoRootDotEnvResult(result) {
+  const loadedCount = result.loadedKeys.length
+  const loadedText = `${loadedCount} missing value${loadedCount === 1 ? '' : 's'}`
+
+  if (result.exists) {
+    const sourceDescription = result.usedFallback ? `${result.source} fallback at ${result.path}` : `${result.source} at ${result.path}`
+
+    return `Repo-root env defaults: loaded ${sourceDescription} (applied ${loadedText})`
+  }
+
+  return `Repo-root env defaults: no .env at ${REPO_ROOT_DOTENV_PATH} and no fallback .env.example at ${REPO_ROOT_DOTENV_EXAMPLE_PATH} (applied ${loadedText})`
+}
+
+function getRepoRootDotEnvHelpLines() {
+  return [
+    `Repo-root env files: try ${REPO_ROOT_DOTENV_PATH} first; if it is missing, fall back to ${REPO_ROOT_DOTENV_EXAMPLE_PATH}.`,
+    'Precedence: CLI flags override existing process env where supported; existing process env overrides loaded file values; .env overrides .env.example.'
+  ]
 }
 
 function parseOptionalInteger(value, label) {
@@ -115,12 +166,15 @@ function getOllamaEmbeddingProviderConfig() {
 module.exports = {
   DEFAULT_LOCAL_PROVIDER,
   DEFAULT_OLLAMA_HOST,
+  REPO_ROOT_DOTENV_EXAMPLE_PATH,
   REPO_ROOT_DOTENV_PATH,
+  formatRepoRootDotEnvResult,
   getOllamaAnswerGenerationConfig,
   getOllamaBaseUrl,
   getOllamaEmbeddingProviderConfig,
   getOpenAIAnswerGenerationConfig,
   getOpenAIEmbeddingProviderConfig,
+  getRepoRootDotEnvHelpLines,
   loadRepoRootDotEnv,
   parseOptionalInteger,
   requireOpenAIApiKey,

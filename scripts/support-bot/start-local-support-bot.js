@@ -34,7 +34,7 @@ function printUsage() {
       '  - node scripts/support-bot/run-support-bot-sync.js --index-output <index-file>',
       '  - node scripts/support-bot/run-support-bot-api.js --index-file <index-file>',
       '',
-      'Provider selection, repo-root .env loading, and prerequisite validation are delegated to the wrapped scripts.'
+      'Wrapped scripts try repo-root .env first, fall back to repo-root .env.example when .env is missing, let existing process env override loaded file values, and let CLI flags win where supported.'
     ].join('\n')
   )
 }
