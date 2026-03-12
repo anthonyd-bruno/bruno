@@ -15,7 +15,10 @@ import {
   type SupportSyncState
 } from './staleness'
 
-const DOCS_EXCLUDED_PATHS = ['/git-integration/provider', '/git-integration/consumer', '/bruno-basics/run-a-collection']
+const DOCS_EXCLUDED_PATHS = [
+  '/git-integration/provider',
+  '/git-integration/consumer'
+]
 const WEBSITE_HIGH_CHURN_TARGET_PATHS = ['/changelog', '/downloads', '/pricing']
 const WEBSITE_HOME_TARGET_PATHS = ['/']
 const WEBSITE_DAILY_TARGET_PATHS = ['/support', '/roadmap', '/terms', '/privacy-policy']

@@ -89,7 +89,7 @@ export class DocsSiteIngester {
         continue;
       }
 
-      this.extractLinks(html, current.url).forEach((link) => {
+      this.extractLinks(html, current.url, parsedPage?.canonicalUrl).forEach((link) => {
         if (visitedUrls.has(link) || queuedUrls.has(link)) {
           return;
         }
@@ -213,7 +213,7 @@ export class DocsSiteIngester {
     return this.toPlainText(normalizedHtml);
   }
 
-  private extractLinks(html: string, pageUrl: string): string[] {
+  private extractLinks(html: string, pageUrl: string, canonicalUrl = pageUrl): string[] {
     const links = new Set<string>();
     const anchorTags = html.match(/<a\b[^>]*>/gi) ?? [];
 
@@ -225,13 +225,13 @@ export class DocsSiteIngester {
       }
 
       try {
-        const candidate = new URL(href, pageUrl);
+        const candidate = new URL(href, this.getLinkResolutionBase(pageUrl, canonicalUrl, href));
 
         if (!['http:', 'https:'].includes(candidate.protocol) || !this.isInternalUrl(candidate)) {
           return;
         }
 
-        const normalizedCandidate = this.normalizeUrl(candidate);
+        const normalizedCandidate = this.normalizeDiscoveredUrl(candidate);
 
         if (this.excludedUrls.has(normalizedCandidate)) {
           return;
@@ -244,6 +244,39 @@ export class DocsSiteIngester {
     });
 
     return Array.from(links);
+  }
+
+  private getLinkResolutionBase(pageUrl: string, canonicalUrl: string, href: string): string {
+    if (!href.startsWith('./') && !href.startsWith('../')) {
+      return pageUrl;
+    }
+
+    const normalizedPageUrl = this.normalizeUrl(pageUrl);
+    const normalizedCanonicalUrl = this.normalizeUrl(canonicalUrl);
+
+    if (!normalizedCanonicalUrl.startsWith(`${normalizedPageUrl}/`)) {
+      return pageUrl;
+    }
+
+    const directoryUrl = new URL(normalizedPageUrl);
+
+    if (!directoryUrl.pathname.endsWith('/')) {
+      directoryUrl.pathname = `${directoryUrl.pathname}/`;
+    }
+
+    return directoryUrl.toString();
+  }
+
+  private normalizeDiscoveredUrl(url: URL): string {
+    const normalized = new URL(url.toString());
+
+    if (normalized.pathname.startsWith('/bruno-basics/')) {
+      normalized.pathname = `/get-started${normalized.pathname}`;
+    } else if (normalized.pathname.startsWith('/import-export-data/')) {
+      normalized.pathname = `/get-started${normalized.pathname}`;
+    }
+
+    return this.normalizeUrl(normalized);
   }
 
   private toSourceDocument(parsedPage: ParsedPage, depth: number, lastSeen: Date): SourceDocument {
