@@ -3,6 +3,7 @@ import { type EmbeddingProvider } from './base';
 const DEFAULT_ENDPOINT = 'http://127.0.0.1:11434/v1/embeddings';
 const DEFAULT_MODEL = 'mxbai-embed-large';
 const MAX_INPUTS_PER_REQUEST = 2048;
+const CONTEXT_LENGTH_ERROR_PATTERNS = ['input length exceeds the context length', 'context length', 'maximum context length'];
 
 interface OllamaEmbeddingResponse {
   data?: Array<{
@@ -46,12 +47,36 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
 
     for (let start = 0; start < texts.length; start += MAX_INPUTS_PER_REQUEST) {
       const batch = texts.slice(start, start + MAX_INPUTS_PER_REQUEST);
-      const batchEmbeddings = await this.fetchEmbeddings(batch);
+      const batchEmbeddings = await this.fetchEmbeddingsWithContextFallback(batch);
 
       embeddings.push(...batchEmbeddings);
     }
 
     return embeddings;
+  }
+
+  private async fetchEmbeddingsWithContextFallback(texts: string[]): Promise<number[][]> {
+    try {
+      return await this.fetchEmbeddings(texts);
+    } catch (error) {
+      if (!this.isContextLengthError(error)) {
+        throw error;
+      }
+
+      if (texts.length === 1) {
+        const detail = error instanceof Error ? error.message : String(error);
+
+        throw new Error(
+          `Ollama embeddings request exceeded context length for a single input even after narrowing to one chunk. Reduce chunk size or content length and retry.${detail ? ` Original error: ${detail}` : ''}`
+        );
+      }
+
+      const midpoint = Math.ceil(texts.length / 2);
+      const leftEmbeddings = await this.fetchEmbeddingsWithContextFallback(texts.slice(0, midpoint));
+      const rightEmbeddings = await this.fetchEmbeddingsWithContextFallback(texts.slice(midpoint));
+
+      return [...leftEmbeddings, ...rightEmbeddings];
+    }
   }
 
   private async fetchEmbeddings(texts: string[]): Promise<number[][]> {
@@ -83,6 +108,16 @@ export class OllamaEmbeddingProvider implements EmbeddingProvider {
     this.assertEmbeddingDimensions(sortedEmbeddings);
 
     return sortedEmbeddings;
+  }
+
+  private isContextLengthError(error: unknown): boolean {
+    const message = (error instanceof Error ? error.message : String(error)).toLowerCase();
+
+    if (!message.includes('status 400')) {
+      return false;
+    }
+
+    return CONTEXT_LENGTH_ERROR_PATTERNS.some((pattern) => message.includes(pattern));
   }
 
   private assertEmbeddingDimensions(embeddings: number[][]): void {
