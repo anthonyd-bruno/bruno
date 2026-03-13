@@ -32,6 +32,14 @@ function createJsonResponse(data: unknown, status = 200): Response {
   } as Response;
 }
 
+function createTextResponse(body: string, status = 400): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    text: async () => body
+  } as Response;
+}
+
 describe('EmbeddingPipeline', () => {
   afterEach(() => {
     jest.restoreAllMocks();
@@ -282,6 +290,52 @@ describe('OllamaEmbeddingProvider', () => {
 
     await expect(provider.embed(['alpha'])).rejects.toThrow(
       'Ollama embeddings returned 3 dimensions but 2 were configured.'
+    );
+  });
+
+  it('retries Ollama context-length failures by splitting batches', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockImplementation(async (_url, init) => {
+      const payload = JSON.parse(init?.body as string) as { input: string[] };
+      const inputs = payload.input;
+
+      if (inputs.length > 2) {
+        return createTextResponse('{"error":{"message":"the input length exceeds the context length"}}', 400);
+      }
+
+      return createJsonResponse({
+        data: inputs.map((text, index) => ({
+          index,
+          embedding: createEmbedding(text, 3)
+        }))
+      });
+    });
+
+    const provider = new OllamaEmbeddingProvider({ model: 'mxbai-embed-large' });
+    const embeddings = await provider.embed(['alpha', 'beta', 'gamma', 'delta']);
+
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(embeddings).toEqual([
+      createEmbedding('alpha', 3),
+      createEmbedding('beta', 3),
+      createEmbedding('gamma', 3),
+      createEmbedding('delta', 3)
+    ]);
+    expect(provider.dimensions).toBe(3);
+  });
+
+  it('surfaces a clear error when one Ollama input still exceeds context length', async () => {
+    const fetchMock = global.fetch as jest.MockedFunction<typeof fetch>;
+
+    fetchMock.mockResolvedValueOnce(
+      createTextResponse('{"error":{"message":"the input length exceeds the context length"}}', 400)
+    );
+
+    const provider = new OllamaEmbeddingProvider({ model: 'mxbai-embed-large' });
+
+    await expect(provider.embed(['oversized chunk'])).rejects.toThrow(
+      'Ollama embeddings request exceeded context length for a single input even after narrowing to one chunk.'
     );
   });
 });

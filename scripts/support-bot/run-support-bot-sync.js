@@ -14,6 +14,8 @@ const {
   resolveLocalProvider
 } = require('./local-provider-config')
 
+const DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE = 8
+
 function loadSupportIndexerPackage() {
   try {
     return require(path.resolve(__dirname, '../../packages/bruno-support-indexer/dist/cjs/index.js'))
@@ -43,6 +45,7 @@ function printUsage() {
       '  --help                  Show this help text',
       '',
       'By default this script remains strict: a failed or stale GitHub sync still exits non-zero unless you explicitly pass --skip-github for local smoke testing.',
+      `Local Ollama index builds use a smaller embedding batch size (${DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE}) and retry-split context-length 400s down to single inputs.`,
       '',
       ...getRepoRootDotEnvHelpLines()
     ].join('\n')
@@ -171,6 +174,10 @@ function createEmbeddingProvider(supportIndexer, provider) {
   return new supportIndexer.OllamaEmbeddingProvider(getOllamaEmbeddingProviderConfig())
 }
 
+function getLocalIndexEmbeddingBatchSize(provider) {
+  return provider === 'ollama' ? DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE : undefined
+}
+
 async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider, options = {}) {
   const { documents, sourceGroups } = await collectDocumentsForLocalIndex(supportIndexer, repoRoot, options)
   const chunker = new supportIndexer.DocumentChunker()
@@ -186,7 +193,11 @@ async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider, optio
     return toIndexedChunk(chunk, document)
   })
   const embeddingProvider = createEmbeddingProvider(supportIndexer, provider)
-  const pipeline = new supportIndexer.EmbeddingPipeline({ provider: embeddingProvider })
+  const embeddingBatchSize = getLocalIndexEmbeddingBatchSize(provider)
+  const pipeline = new supportIndexer.EmbeddingPipeline({
+    provider: embeddingProvider,
+    ...(embeddingBatchSize ? { batchSize: embeddingBatchSize } : {})
+  })
   const embeddedChunks = await pipeline.embed(indexedChunks)
 
   if (embeddedChunks.length !== indexedChunks.length) {
@@ -316,6 +327,7 @@ async function main() {
 module.exports = {
   applyLocalGithubSkipToScheduleOverrides,
   collectDocumentsForLocalIndex,
+  getLocalIndexEmbeddingBatchSize,
   parseArgs
 }
 
