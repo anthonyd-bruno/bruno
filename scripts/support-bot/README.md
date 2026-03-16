@@ -30,10 +30,12 @@ Repo-local operational scripts for scheduled support-bot workflows.
 - Precedence for local support-bot config remains: CLI flags override existing process env
   where supported, existing process env overrides loaded file values, and repo-root `.env`
   overrides repo-root `.env.example`.
-- Local Ollama index builds now use smaller embedding batches (`8` chunks/request) and,
-  when Ollama returns a context-length-related 400 for a multi-input embeddings request,
-  retry by splitting that batch down to smaller groups. If a single chunk still exceeds the
-  model context limit, the local index build still fails and you must reduce chunk size/content.
+- Local Ollama index builds now use smaller chunks (`maxChunkSize: 800`, which keeps
+  later chunks around ~1000 chars once the default overlap is applied) plus smaller
+  embedding batches (`8` chunks/request). If Ollama returns a context-length-related 400
+  for a multi-input embeddings request, the provider still retries by splitting that batch
+  down to smaller groups. If a single chunk still exceeds the model context limit, the
+  local index build still fails and you must reduce chunk size/content.
 - The website daily sync targets intentionally omit retired `/about` and use
   `/privacy-policy` instead of `/privacy` because the old URLs now 404 upstream.
 - The docs crawl excludes retired `/git-integration/provider` and

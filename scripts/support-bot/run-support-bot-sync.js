@@ -15,6 +15,7 @@ const {
 } = require('./local-provider-config')
 
 const DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE = 8
+const DEFAULT_LOCAL_OLLAMA_MAX_CHUNK_SIZE = 800
 
 function loadSupportIndexerPackage() {
   try {
@@ -45,7 +46,7 @@ function printUsage() {
       '  --help                  Show this help text',
       '',
       'By default this script remains strict: a failed or stale GitHub sync still exits non-zero unless you explicitly pass --skip-github for local smoke testing.',
-      `Local Ollama index builds use a smaller embedding batch size (${DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE}) and retry-split context-length 400s down to single inputs.`,
+      `Local Ollama index builds use smaller chunks (${DEFAULT_LOCAL_OLLAMA_MAX_CHUNK_SIZE} chars before overlap, about 1000 effective chars with default overlap) plus a smaller embedding batch size (${DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE}); multi-input context-length 400s still retry-split down to single inputs.`,
       '',
       ...getRepoRootDotEnvHelpLines()
     ].join('\n')
@@ -178,9 +179,22 @@ function getLocalIndexEmbeddingBatchSize(provider) {
   return provider === 'ollama' ? DEFAULT_LOCAL_OLLAMA_EMBEDDING_BATCH_SIZE : undefined
 }
 
+function getLocalIndexChunkerConfig(provider) {
+  if (provider !== 'ollama') {
+    return undefined
+  }
+
+  return {
+    // DocumentChunker prepends the default 200-char overlap to later chunks, so an 800-char
+    // base chunk size keeps local Ollama embedding inputs around ~1000 chars instead of the
+    // default path's ~1700-char effective ceiling.
+    maxChunkSize: DEFAULT_LOCAL_OLLAMA_MAX_CHUNK_SIZE
+  }
+}
+
 async function buildLocalIndexSnapshot(supportIndexer, repoRoot, provider, options = {}) {
   const { documents, sourceGroups } = await collectDocumentsForLocalIndex(supportIndexer, repoRoot, options)
-  const chunker = new supportIndexer.DocumentChunker()
+  const chunker = new supportIndexer.DocumentChunker(getLocalIndexChunkerConfig(provider))
   const documentsById = new Map(documents.map((document) => [document.id, document]))
   const rawChunks = chunker.chunkMany(documents)
   const indexedChunks = rawChunks.map((chunk) => {
@@ -326,7 +340,9 @@ async function main() {
 
 module.exports = {
   applyLocalGithubSkipToScheduleOverrides,
+  buildLocalIndexSnapshot,
   collectDocumentsForLocalIndex,
+  getLocalIndexChunkerConfig,
   getLocalIndexEmbeddingBatchSize,
   parseArgs
 }
